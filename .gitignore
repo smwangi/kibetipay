@@ -1,0 +1,9 @@
+target/
+.idea/
+*.iml
+.vscode/
+.env
+application-local.yml
+secrets.yml
+
+.fake

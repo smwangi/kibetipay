@@ -1,0 +1,50 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "analysis": {
+      "filter": {
+        "english_stemmer": { "type": "stemmer", "language": "light_english" },
+        "edge_2_15": { "type": "edge_ngram", "min_gram": 2, "max_gram": 15 }
+      },
+      "analyzer": {
+        "note_text": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding", "english_stemmer"]
+        },
+        "note_prefix": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding", "edge_2_15"]
+        },
+        "note_prefix_search": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "transferId":  { "type": "keyword" },
+      "initiatorId": { "type": "keyword" },
+      "recipientId": { "type": "keyword" },
+      "amountMinor": { "type": "long" },
+      "currency":    { "type": "keyword" },
+      "note": {
+        "type": "text",
+        "analyzer": "note_text",
+        "fields": {
+          "prefix": { "type": "text", "analyzer": "note_prefix", "search_analyzer": "note_prefix_search" }
+        }
+      },
+      "riskScore":   { "type": "integer" },
+      "status":      { "type": "keyword" },
+      "reason":      { "type": "text" },
+      "updatedAt":   { "type": "date", "format": "epoch_millis" }
+    }
+  }
+}

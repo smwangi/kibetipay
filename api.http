@@ -1,0 +1,158 @@
+### IntelliJ / VS Code REST Client. Basic auth = dev users from application-dev.yml
+@base = http://localhost:8080
+
+### Open wallets
+POST {{base}}/api/wallets
+Authorization: Basic alice alice-dev
+
+###
+POST {{base}}/api/wallets
+Authorization: Basic bob bob-dev
+
+### Deposit (simulated M-Pesa top-up). Re-send with the same key: balance does not change.
+POST {{base}}/api/wallets/me/deposits
+Authorization: Basic alice alice-dev
+Idempotency-Key: dep-0001
+Content-Type: application/json
+
+{ "amount": 50000.00 }
+
+### Send money (202 Accepted, settles asynchronously)
+POST {{base}}/api/transfers
+Authorization: Basic alice alice-dev
+Idempotency-Key: trf-00000001
+Content-Type: application/json
+
+{ "recipient": "bob", "amount": 1200.00, "note": "lunch at Java House" }
+
+### Large transfer (>= KES 20,000 scores 35) -> expect IN_REVIEW
+POST {{base}}/api/transfers
+Authorization: Basic alice alice-dev
+Idempotency-Key: trf-00000002
+Content-Type: application/json
+
+{ "recipient": "bob", "amount": 21000.00, "note": "rent" }
+
+### My transfers
+GET {{base}}/api/transfers
+Authorization: Basic alice alice-dev
+
+### Statement
+GET {{base}}/api/wallets/me/statement
+Authorization: Basic alice alice-dev
+
+### Analyst review queue
+GET {{base}}/api/admin/transfers/review-queue
+Authorization: Basic admin admin-dev
+
+### Approve a held transfer (replace id)
+POST {{base}}/api/admin/transfers/00000000-0000-0000-0000-000000000000/approve
+Authorization: Basic admin admin-dev
+
+### Spending insights + LLM narrative
+GET {{base}}/api/insights/me/narrative
+Authorization: Basic alice alice-dev
+
+### Anomaly alerts
+GET {{base}}/api/anomalies/me
+Authorization: Basic alice alice-dev
+
+### Ask the assistant (RAG + tools)
+POST {{base}}/api/assistant/ask
+Authorization: Basic alice alice-dev
+Content-Type: application/json
+
+{ "question": "Why might my transfer be in review, and what did I spend most on this month?" }
+
+### Module structure, event publications (dev exposes all actuator endpoints)
+GET {{base}}/actuator/modulith
+Authorization: Basic admin admin-dev
+
+### ===================== Lending =====================
+
+### Loan products
+GET {{base}}/api/loans/products
+Authorization: Basic alice alice-dev
+
+### Sub-agent otieno originates a KES 3,000 loan for alice (202, decided async)
+POST {{base}}/api/agents/me/loans
+Authorization: Basic otieno otieno-dev
+Idempotency-Key: loan-00000001
+Content-Type: application/json
+
+{ "borrower": "alice", "productCode": "SOKO-28", "principal": 3000.00 }
+
+### Alice sees her loan, schedule and score
+GET {{base}}/api/loans
+Authorization: Basic alice alice-dev
+
+### Alice repays KES 850 from her wallet (waterfall: fee -> interest -> principal)
+POST {{base}}/api/loans/REPLACE-LOAN-ID/repayments
+Authorization: Basic alice alice-dev
+Idempotency-Key: rep-00000001
+Content-Type: application/json
+
+{ "amount": 850.00 }
+
+### Otieno collects KES 500 cash for the same loan (debits his float)
+POST {{base}}/api/agents/me/collections
+Authorization: Basic otieno otieno-dev
+Idempotency-Key: col-00000001
+Content-Type: application/json
+
+{ "loanId": "REPLACE-LOAN-ID", "amount": 500.00 }
+
+### Wanjiru's portfolio rolls up otieno's book (recursive CTE) incl. PAR30 and her commission
+GET {{base}}/api/agents/me/portfolio
+Authorization: Basic wanjiru wanjiru-dev
+
+### Wanjiru's network
+GET {{base}}/api/agents/me/network
+Authorization: Basic wanjiru wanjiru-dev
+
+### Fast-forward: run end-of-day for a date 20 days ahead -> installments go OVERDUE, penalties accrue
+POST {{base}}/api/admin/lending/jobs/eod?date=2026-12-01
+Authorization: Basic admin admin-dev
+
+### Whole-book portfolio
+GET {{base}}/api/admin/lending/portfolio
+Authorization: Basic admin admin-dev
+
+### Credit review queue
+GET {{base}}/api/admin/lending/review-queue
+Authorization: Basic admin admin-dev
+
+### Ask the assistant about loans (RAG policy + myLoans tool)
+POST {{base}}/api/assistant/ask
+Authorization: Basic alice alice-dev
+Content-Type: application/json
+
+{ "question": "When is my next loan installment and how can I borrow more next time?" }
+
+### ===================== Search (OpenSearch read model, dev profile) =====================
+### Indexing is async (~1s). Dashboards Dev Tools: http://localhost:5601/app/dev_tools#/console
+
+### Full text: stemmed + fuzzy ("lunches", "lnch") and as-you-type ("jav") all find "lunch at Java House"
+GET {{base}}/api/admin/search/transfers?q=jav
+Authorization: Basic admin admin-dev
+
+### Filters + facets: completed transfers between 500 and 5,000 KES this month
+GET {{base}}/api/admin/search/transfers?status=completed&minAmount=500&maxAmount=5000&from=2026-11-01
+Authorization: Basic admin admin-dev
+
+### Everything involving one user
+GET {{base}}/api/admin/search/transfers?party=alice
+Authorization: Basic admin admin-dev
+
+### A user searches only their own transfers (scoped server-side)
+GET {{base}}/api/search/transfers?q=lunch
+Authorization: Basic bob bob-dev
+
+### Loan book: per-status counts with principal and repaid sums
+GET {{base}}/api/admin/search/loans
+Authorization: Basic admin admin-dev
+
+### Loans of one borrower
+GET {{base}}/api/admin/search/loans?borrower=alice
+Authorization: Basic admin admin-dev
+
