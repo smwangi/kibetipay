@@ -1,0 +1,54 @@
+# Picked up automatically by spring-boot-docker-compose in the dev profile.
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: kibetipay
+      POSTGRES_USER: kibetipay
+      POSTGRES_PASSWORD: kibetipay-dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+
+  # Search read model (search module). Security plugin off: local dev only.
+  opensearch:
+    image: opensearchproject/opensearch:3.9.0
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - osdata:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      retries: 12
+
+  # Kibana-equivalent UI: Dev Tools console, Discover, dashboards. http://localhost:5601
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:3.9.0
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    ports:
+      - "5601:5601"
+    depends_on:
+      - opensearch
+    labels:
+      org.springframework.boot.ignore: "true"
+
+volumes:
+  pgdata:
+  ollama:
+  osdata:

@@ -1,0 +1,23 @@
+# Production: every secret comes from the environment / secret manager. No defaults for secrets.
+spring:
+  datasource:
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 20
+  docker:
+    compose:
+      enabled: false
+  ai:
+    ollama:
+      init:
+        pull-model-strategy: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus   # configprops/env stay closed
+
+app:
+  assistant:
+    ingest-on-startup: false              # run ingestion as a job, not on every pod start

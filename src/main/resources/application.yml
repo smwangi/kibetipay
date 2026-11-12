@@ -1,0 +1,116 @@
+# Defaults shared by every environment. Profiles override values, never keys.
+spring:
+  application:
+    name: kibetipay
+  profiles:
+    default: dev
+  threads:
+    virtual:
+      enabled: true            # Java 21 virtual threads for request + async work
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/kibetipay}
+    username: ${DB_USERNAME:kibetipay}
+    password: ${DB_PASSWORD:}
+  jpa:
+    open-in-view: false        # no lazy loading leaking into controllers
+    hibernate:
+      ddl-auto: validate       # Flyway owns the schema
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          enabled: true        # event_publication table = transactional outbox
+      republish-outstanding-events-on-restart: true
+      completion-mode: update
+  ai:
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY}
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        options:
+          model: ${AI_CHAT_MODEL:llama3.2}
+          temperature: 0.1
+      embedding:
+        options:
+          model: ${AI_EMBEDDING_MODEL:nomic-embed-text}
+      init:
+        pull-model-strategy: when_missing
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        dimensions: 768        # nomic-embed-text
+        index-type: hnsw
+        distance-type: cosine_distance
+
+server:
+  shutdown: graceful
+  error:
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,modulith
+  endpoint:
+    health:
+      probes:
+        enabled: true          # /actuator/health/liveness + readiness for k8s
+  observations:
+    annotations:
+      enabled: true            # activates @Observed (timers + traces)
+    key-values:
+      application: kibetipay
+  tracing:
+    sampling:
+      probability: 0.1
+
+app:
+  ai:
+    enabled: true                     # false = no LLM beans are created; @Fallback no-op beans take over
+  ledger:
+    default-currency: KES
+    float-owner-id: "system:float"
+  transfer:
+    max-amount-minor: 10000000        # 100,000.00 KES per transfer
+  agent:
+    max-depth: 2                      # agent -> sub-agent
+  lending:
+    commission-rate-bps: 2000         # 20% of collected interest + fees goes to agents
+    commission-split: [60, 40]        # originating agent, then its parent
+    default-after-days: 90
+    approve-score: 50
+    review-score: 35
+  risk:
+    approve-below: 30                 # 0-29 approve, 30-79 human review, 80+ reject
+    reject-at-or-above: 80
+    velocity-window: 10m
+    velocity-max-transfers: 5
+    large-amount-minor: 2000000       # 20,000.00 KES
+  anomaly:
+    z-score-threshold: 3.0
+    min-history-days: 7
+  insights:
+    enabled: true
+  assistant:
+    top-k: 4
+    similarity-threshold: 0.55
+    ingest-on-startup: true
+  search:
+    enabled: false                    # opt-in read model; dev profile turns it on (needs an OpenSearch cluster)
+    url: ${OPENSEARCH_URL:http://localhost:9200}
+    username: ${OPENSEARCH_USERNAME:}
+    password: ${OPENSEARCH_PASSWORD:}
+    index-prefix: kibetipay
+  security:
+    users: []                         # dev profile seeds demo users
+
+logging:
+  pattern:
+    correlation: "[${spring.application.name:},%X{traceId:-},%X{spanId:-}] "

@@ -1,0 +1,40 @@
+# Local development: docker compose starts Postgres(pgvector) + Ollama automatically.
+spring:
+  docker:
+    compose:
+      lifecycle-management: start-only
+  datasource:
+    password: ${DB_PASSWORD:kibetipay-dev}
+  jpa:
+    show-sql: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"           # dev only: configprops, env, modulith, etc.
+  tracing:
+    sampling:
+      probability: 1.0
+
+app:
+  search:
+    enabled: true                    # compose starts OpenSearch (security plugin off) on :9200
+  security:
+    users:
+      - username: alice
+        password: "{noop}alice-dev"
+      - username: bob
+        password: "{noop}bob-dev"
+      - username: wanjiru            # top agent (seeded)
+        password: "{noop}wanjiru-dev"
+      - username: otieno             # sub-agent under wanjiru (seeded)
+        password: "{noop}otieno-dev"
+      - username: admin
+        password: "{noop}admin-dev"
+        roles: [ADMIN]
+
+logging:
+  level:
+    com.samwan.kibetipay: DEBUG
+    org.springframework.modulith.events: DEBUG
