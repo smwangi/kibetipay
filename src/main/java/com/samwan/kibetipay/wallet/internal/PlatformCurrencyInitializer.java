@@ -19,14 +19,14 @@ class PlatformCurrencyInitializer implements ApplicationRunner {
     private final JdbcClient jdbc;
     private final LedgerProperties properties;
     private final TransactionTemplate transactions;
-    private final CurrencyRegistry registry;
+    private final CurrencyRegistry currencyRegistry;
 
     PlatformCurrencyInitializer(JdbcClient jdbc, LedgerProperties properties, TransactionTemplate transactions,
                                 CurrencyRegistry registry) {
         this.jdbc = jdbc;
         this.properties = properties;
         this.transactions = transactions;
-        this.registry = registry;
+        this.currencyRegistry = registry;
     }
 
     @Override
@@ -36,7 +36,7 @@ class PlatformCurrencyInitializer implements ApplicationRunner {
 
     void initialize() {
         String currency = properties.defaultCurrency();
-        if (!registry.supports(currency)) {
+        if (!currencyRegistry.supports(currency)) {
             throw new IllegalStateException("The operating currency must be enabled in the currency registry: " + currency);
         }
         jdbc.sql("INSERT INTO wallet_platform_currency (singleton, currency) VALUES (true, :currency) ON CONFLICT DO NOTHING")

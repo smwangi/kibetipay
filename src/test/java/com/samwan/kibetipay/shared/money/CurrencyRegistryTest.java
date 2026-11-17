@@ -28,6 +28,26 @@ class CurrencyRegistryTest {
     }
 
     @Test
+    void reportsTheOffendingCodeInValidationErrors() {
+        assertThatThrownBy(() -> new CurrencyRegistry(List.of("USD", "KES", "USD")))
+                .hasMessage("Duplicate currency: USD");
+        assertThatThrownBy(() -> new CurrencyRegistry(List.of("ZZZ")))
+                .hasMessage("Unknown ISO 4217 currency code: ZZZ");
+        assertThatThrownBy(() -> new CurrencyRegistry(List.of("usd")))
+                .hasMessage("Unknown ISO 4217 currency code: usd");
+        assertThatThrownBy(() -> new CurrencyRegistry(List.of(" ")))
+                .hasMessage("Currency code must not be blank");
+    }
+
+    @Test
+    void supportsIsNullSafe() {
+        var registry = new CurrencyRegistry(List.of("USD"));
+        assertThat(registry.supports("USD")).isTrue();
+        assertThat(registry.supports("KES")).isFalse();
+        assertThat(registry.supports(null)).isFalse();
+    }
+
+    @Test
     void bindsEnabledCurrenciesFromConfiguration() {
         new ApplicationContextRunner().withUserConfiguration(RegistryConfiguration.class)
                 .withPropertyValues("app.currencies.enabled=JPY,USD,KWD")
