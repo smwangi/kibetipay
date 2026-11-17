@@ -3,6 +3,7 @@ package com.samwan.kibetipay.notification.internal;
 import com.samwan.kibetipay.lending.LendingEvents.LoanDeclined;
 import com.samwan.kibetipay.lending.LendingEvents.LoanDisbursed;
 import com.samwan.kibetipay.lending.LendingEvents.LoanRepaid;
+import com.samwan.kibetipay.lending.LendingEvents.LoanOffered;
 import com.samwan.kibetipay.lending.LendingEvents.RepaymentReceived;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -18,6 +19,12 @@ class LendingNotifications {
     LendingNotifications(JdbcClient jdbc) { this.jdbc = jdbc; }
 
     @ApplicationModuleListener
+    void offered(LoanOffered e) {
+        insert(e.borrowerId(), "offered:" + e.loanId(), "LOAN_OFFERED",
+                "You have a loan offer " + e.loanId() + ". Review its terms before accepting or declining.", e.at());
+    }
+
+    @ApplicationModuleListener
     void disbursed(LoanDisbursed e) {
         insert(e.borrowerId(), "disbursed:" + e.loanId(), "LOAN_DISBURSED",
                 "Your loan " + e.loanId() + " has been disbursed to your wallet.", e.at());
@@ -26,7 +33,9 @@ class LendingNotifications {
     @ApplicationModuleListener
     void declined(LoanDeclined e) {
         insert(e.borrowerId(), "declined:" + e.loanId(), "LOAN_DECLINED",
-                "Your loan application " + e.loanId() + " was declined.", e.at());
+                "borrower_declined".equals(e.reasons())
+                        ? "You declined loan offer " + e.loanId() + "."
+                        : "Your loan application " + e.loanId() + " was declined.", e.at());
     }
 
     @ApplicationModuleListener

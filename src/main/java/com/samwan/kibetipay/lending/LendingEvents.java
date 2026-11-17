@@ -12,6 +12,8 @@ public final class LendingEvents {
     /** Internal kick-off of the async approval/disbursement saga. */
     public record LoanApplied(UUID loanId) {}
 
+    public record LoanOffered(UUID loanId, String borrowerId, Instant at) {}
+
     public record LoanDisbursed(UUID loanId, String borrowerId, UUID agentId, long principalMinor,
                                 String currency, Instant at) {}
 

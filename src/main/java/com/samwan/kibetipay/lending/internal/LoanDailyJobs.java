@@ -73,10 +73,9 @@ class LoanDailyJobs {
             int penalised = jdbc.sql("""
                             UPDATE lending_installment i
                             SET penalty_due = LEAST(
-                                    i.penalty_due + (i.principal_due - i.principal_paid) * p.penalty_bps_per_day / 10000,
+                                    i.penalty_due + (i.principal_due - i.principal_paid) * l.penalty_bps_per_day_snapshot / 10000,
                                     i.principal_due)
                             FROM lending_loan l
-                            JOIN lending_product p ON p.code = l.product_code
                             WHERE i.loan_id = l.id
                               AND l.status = 'ACTIVE'
                               AND i.status = 'OVERDUE'

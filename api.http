@@ -74,7 +74,7 @@ Authorization: Basic admin admin-dev
 GET {{base}}/api/loans/products
 Authorization: Basic alice alice-dev
 
-### Sub-agent otieno originates a KES 3,000 loan for alice (202, decided async)
+### Sub-agent otieno creates an offer for alice (202; assessment follows acceptance)
 POST {{base}}/api/agents/me/loans
 Authorization: Basic otieno otieno-dev
 Idempotency-Key: loan-00000001
@@ -82,8 +82,20 @@ Content-Type: application/json
 
 { "borrower": "alice", "productCode": "SOKO-28", "principal": 3000.00 }
 
-### Alice sees her loan, schedule and score
+### Alice lists her loans, including outstanding offers
 GET {{base}}/api/loans
+Authorization: Basic alice alice-dev
+
+### Review the offer, including costs and instalments relative to disbursement
+GET {{base}}/api/loans/REPLACE-LOAN-ID/offer
+Authorization: Basic alice alice-dev
+
+### Accept; assessment and possible disbursement run asynchronously
+POST {{base}}/api/loans/REPLACE-LOAN-ID/offer/accept
+Authorization: Basic alice alice-dev
+
+### Alternatively decline the offer
+POST {{base}}/api/loans/REPLACE-LOAN-ID/offer/decline
 Authorization: Basic alice alice-dev
 
 ### Alice repays KES 850 from her wallet (waterfall: fee -> interest -> principal)
