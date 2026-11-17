@@ -39,7 +39,9 @@ class CollectionService {
     Result initiate(String owner, String key, String msisdn, Money amount) {
         var request = new MobileMoneyGateway.CollectionRequest(UUID.randomUUID().toString(), msisdn, amount,
                 "wallet", "Wallet deposit");
-        if (!wallets.exists(owner, amount.currencyCode())) throw new WalletApi.WalletNotFoundException(owner, amount.currencyCode());
+        if (!wallets.exists(owner, amount.currencyCode())) {
+            throw new WalletApi.WalletNotFoundException(owner, amount.currencyCode());
+        }
         UUID id = UUID.fromString(request.idempotencyKey());
         int inserted = tx.execute(s -> jdbc.sql("""
                 INSERT INTO mobilemoney_collection (id, owner_id, idempotency_key, provider, msisdn,
@@ -125,7 +127,9 @@ class CollectionService {
         String sql = "SELECT * FROM mobilemoney_collection WHERE id = :id" + (owner == null ? "" : " AND owner_id = :owner")
                 + (lock ? " FOR UPDATE" : "");
         var query = jdbc.sql(sql).param("id", id);
-        if (owner != null) query = query.param("owner", owner);
+        if (owner != null) {
+            query = query.param("owner", owner);
+        }
         return query.query(this::map).optional().orElseThrow(() -> new DomainException.NotFound("collection_not_found", "No collection " + id));
     }
 

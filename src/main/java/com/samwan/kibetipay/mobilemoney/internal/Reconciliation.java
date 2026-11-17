@@ -15,9 +15,15 @@ final class Reconciliation {
 
     static Result compare(String expectedDirection, long expectedAmount, String expectedCurrency,
                           String actualDirection, long actualAmount, String actualCurrency) {
-        if (!Objects.equals(expectedDirection, actualDirection)) return Result.DIRECTION_MISMATCH;
-        if (!Objects.equals(expectedCurrency, actualCurrency)) return Result.CURRENCY_MISMATCH;
-        if (expectedAmount != actualAmount) return Result.AMOUNT_MISMATCH;
+        if (!Objects.equals(expectedDirection, actualDirection)) {
+            return Result.DIRECTION_MISMATCH;
+        }
+        if (!Objects.equals(expectedCurrency, actualCurrency)) {
+            return Result.CURRENCY_MISMATCH;
+        }
+        if (expectedAmount != actualAmount) {
+            return Result.AMOUNT_MISMATCH;
+        }
         return Result.MATCHED;
     }
 }

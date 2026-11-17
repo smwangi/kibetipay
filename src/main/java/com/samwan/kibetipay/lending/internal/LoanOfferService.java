@@ -38,7 +38,9 @@ class LoanOfferService {
     @Transactional(readOnly = true)
     Offer offer(UUID id, String borrower) {
         Loan loan = loans.findById(id).orElseThrow(() -> notFound(id));
-        if (!loan.borrowerId().equals(borrower)) throw notFound(id);
+        if (!loan.borrowerId().equals(borrower)) {
+            throw notFound(id);
+        }
         var terms = loan.offeredTerms();
         String cur = loan.currency();
         var lines = ScheduleCalculator.schedule(terms, BASE).stream().map(line -> new Instalment(line.seq(),
@@ -55,11 +57,17 @@ class LoanOfferService {
     @Transactional
     Response respond(UUID id, String borrower, boolean accept) {
         Loan loan = loans.findForUpdate(id).orElseThrow(() -> notFound(id));
-        if (!loan.borrowerId().equals(borrower)) throw notFound(id);
+        if (!loan.borrowerId().equals(borrower)) {
+            throw notFound(id);
+        }
         Instant now = Instant.now(clock);
         boolean changed = loan.borrowerRespond(accept, now);
-        if (changed && accept) events.publishEvent(new LoanApplied(id));
-        if (changed && !accept) events.publishEvent(new LoanDeclined(id, borrower, "borrower_declined", now));
+        if (changed && accept) {
+            events.publishEvent(new LoanApplied(id));
+        }
+        if (changed && !accept) {
+            events.publishEvent(new LoanDeclined(id, borrower, "borrower_declined", now));
+        }
         return new Response(id, loan.borrowerDecision(), loan.borrowerDecidedAt(), !changed);
     }
 

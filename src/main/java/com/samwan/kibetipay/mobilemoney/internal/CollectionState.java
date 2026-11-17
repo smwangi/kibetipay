@@ -15,7 +15,9 @@ final class CollectionState {
     private CollectionState() {}
 
     static boolean requireResult(Status status, boolean success) {
-        if ((status == Status.COMPLETED && success) || (status == Status.FAILED && !success)) return false;
+        if ((status == Status.COMPLETED && success) || (status == Status.FAILED && !success)) {
+            return false;
+        }
         if (status != Status.PENDING && status != Status.UNKNOWN) {
             throw new DomainException.Conflict("invalid_collection_state", "Collection is " + status);
         }
