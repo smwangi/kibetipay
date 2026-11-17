@@ -46,7 +46,10 @@ public interface MobileMoneyGateway {
     /** Provider's acknowledgement. {@code providerRequestId} is what the callback will reference. */
     record Requested(String provider, String providerRequestId, Status status, String message) {}
 
-    enum Status { ACCEPTED, REJECTED }
+    enum Status {
+        ACCEPTED,
+        REJECTED
+    }
 
     final class Msisdn {
         private Msisdn() {

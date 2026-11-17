@@ -39,7 +39,15 @@ import java.util.UUID;
 @Table(name = "lending_loan")
 class Loan {
 
-    enum Status { OFFERED, APPLIED, IN_REVIEW, DECLINED, ACTIVE, REPAID, DEFAULTED }
+    enum Status {
+        OFFERED,
+        APPLIED,
+        IN_REVIEW,
+        DECLINED,
+        ACTIVE,
+        REPAID,
+        DEFAULTED
+    }
 
     @Id
     private UUID id;

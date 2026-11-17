@@ -22,7 +22,10 @@ import org.hibernate.annotations.Immutable;
 @Table(name = "wallet_ledger_entry")
 class LedgerEntry {
 
-    enum Direction { DEBIT, CREDIT }
+    enum Direction {
+        DEBIT,
+        CREDIT
+    }
 
     @Id
     private UUID id;

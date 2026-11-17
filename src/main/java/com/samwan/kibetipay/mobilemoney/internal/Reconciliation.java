@@ -4,7 +4,12 @@ import java.util.Objects;
 
 /** Compares evidence; it never authorizes a payment or changes the ledger. */
 final class Reconciliation {
-    enum Result { MATCHED, AMOUNT_MISMATCH, CURRENCY_MISMATCH, DIRECTION_MISMATCH }
+    enum Result {
+        MATCHED,
+        AMOUNT_MISMATCH,
+        CURRENCY_MISMATCH,
+        DIRECTION_MISMATCH
+    }
 
     private Reconciliation() {}
 

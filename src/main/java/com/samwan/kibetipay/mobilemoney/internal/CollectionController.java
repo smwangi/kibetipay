@@ -12,7 +12,6 @@ import jakarta.validation.constraints.Pattern;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,7 +21,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@Validated
 class CollectionController {
     private final CollectionService collections;
     private final WalletApi wallets;

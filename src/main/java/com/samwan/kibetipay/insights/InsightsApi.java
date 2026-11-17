@@ -7,7 +7,19 @@ public interface InsightsApi {
 
     SpendingSummary spending(String ownerId, YearMonth month);
 
-    enum Category { FOOD, TRANSPORT, RENT, UTILITIES, SHOPPING, ENTERTAINMENT, FAMILY_SUPPORT, SAVINGS, BUSINESS, OTHER, UNCATEGORISED }
+    enum Category {
+        FOOD,
+        TRANSPORT,
+        RENT,
+        UTILITIES,
+        SHOPPING,
+        ENTERTAINMENT,
+        FAMILY_SUPPORT,
+        SAVINGS,
+        BUSINESS,
+        OTHER,
+        UNCATEGORISED
+    }
 
     record CategoryTotal(Category category, String amount, int count) {}
 

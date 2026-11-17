@@ -50,7 +50,11 @@ class Installment {
     private long feePaid;
     @Column(name = "penalty_paid", nullable = false)
     private long penaltyPaid;
-    enum Status { DUE, OVERDUE, PAID }
+    enum Status {
+        DUE,
+        OVERDUE,
+        PAID
+    }
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
