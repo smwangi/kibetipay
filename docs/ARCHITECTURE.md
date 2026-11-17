@@ -56,7 +56,7 @@ No cycles; `ModularityTests` fails the build if that ever changes.
 | insights | `insight_transaction` | `InsightsApi` | Projection + batch LLM categorisation |
 | assistant | `vector_store` (Spring AI) | REST only | RAG + read-only tools + chat memory |
 | agent | `agent` | `AgentApi` | Agent → sub-agent tree, float wallets, recursive CTE lineage/subtree |
-| mobilemoney | `mobilemoney_expected_payment`, `mobilemoney_provider_transaction` | `MobileMoneyGateway` | Simulator plus manual evidence comparison; no real provider settlement integration |
+| mobilemoney | `mobilemoney_collection`, `mobilemoney_expected_payment`, `mobilemoney_provider_transaction` | `MobileMoneyGateway` | Simulated wallet collection lifecycle and manual evidence comparison; no real provider integration |
 | lending | `lending_*` | `LendingQueries`, `LendingEvents` | Products, credit scorecard, approval saga, schedules, repayment waterfall, commissions, end-of-day job, PAR |
 | notification | `notification_message` | REST only | Event-driven in-app lending inbox; no SMS delivery |
 | search | OpenSearch indices `kibetipay-transfers`, `kibetipay-loans` (aliases → `-v1`) | REST only | Read model fed by events. Opt-in (`app.search.enabled`); see §9 |
