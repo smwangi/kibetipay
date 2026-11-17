@@ -1,0 +1,9 @@
+# Support assistant
+
+The assistant answers support questions using retrieved policy documents and read-only account tools. `POST /api/assistant/ask` accepts a `question` of up to 1,000 characters and responds with an answer. It uses the authenticated user ID as the conversation ID and constructs `AccountTools` bound to that user. Tools can query the user's wallet, recent transfers, spending and loans; they do not initiate or approve payments.
+
+## Knowledge and model dependencies
+
+`KnowledgeIngestor` reads `src/main/resources/knowledge/*.md`, splits files into chunks, embeds them and stores them in pgvector with source and SHA-256 metadata. Startup ingestion is controlled by `app.assistant.ingest-on-startup`; `POST /api/admin/assistant/reindex` invokes ingestion manually. For each source it deletes existing chunks then inserts current chunks. Ingestion catches failures and logs a warning, so an operation can return a partial chunk count; inspect logs and the vector store rather than assuming a reindex succeeded completely. Files removed from the classpath are not explicitly removed by this loop.
+
+The chat client uses memory, vector retrieval (`app.assistant.top-k` and `similarity-threshold`) and per-request account tools. The prompt instructs the model to use retrieved policy context and say when it does not know, but generated answers still require appropriate review. `SimpleLoggerAdvisor` is configured: consider the sensitivity of prompts, retrieved content and tool results in application logs. Chat, embeddings and vector-store configuration must be compatible with the dependencies and deployment; they are not needed to settle wallet transfers.

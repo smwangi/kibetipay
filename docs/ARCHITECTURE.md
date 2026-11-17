@@ -41,6 +41,7 @@ flowchart LR
     lending -->|RiskApi.assess fraud| risk
     search -. TransferCompleted/Held/Rejected .-> transfer
     search -. LendingEvents .-> lending
+    notification -. LendingEvents .-> lending
 ```
 
 Solid arrow = synchronous call through a public API interface. Dotted = listens to events.
@@ -55,8 +56,9 @@ No cycles; `ModularityTests` fails the build if that ever changes.
 | insights | `insight_transaction` | `InsightsApi` | Projection + batch LLM categorisation |
 | assistant | `vector_store` (Spring AI) | REST only | RAG + read-only tools + chat memory |
 | agent | `agent` | `AgentApi` | Agent → sub-agent tree, float wallets, recursive CTE lineage/subtree |
-| mobilemoney | none yet | `MobileMoneyGateway` | Port for M-Pesa STK push / B2C; `@Fallback` simulator until Daraja is configured |
+| mobilemoney | `mobilemoney_expected_payment`, `mobilemoney_provider_transaction` | `MobileMoneyGateway` | Simulator plus manual evidence comparison; no real provider settlement integration |
 | lending | `lending_*` | `LendingQueries`, `LendingEvents` | Products, credit scorecard, approval saga, schedules, repayment waterfall, commissions, end-of-day job, PAR |
+| notification | `notification_message` | REST only | Event-driven in-app lending inbox; no SMS delivery |
 | search | OpenSearch indices `kibetipay-transfers`, `kibetipay-loans` (aliases → `-v1`) | REST only | Read model fed by events. Opt-in (`app.search.enabled`); see §9 |
 
 ## 3. The transfer saga
@@ -136,8 +138,9 @@ Design decisions worth explaining in an interview:
 - **Loan ladder**: first loan capped; later loans up to 2× the largest repaid loan (`ScorecardCreditModel`).
 - **Commission on collections, not disbursement**: agents earn when borrowers repay, which discourages reckless lending.
 - **Agent exposure limit** checked before disbursement; sub-agent limit can never exceed its parent's.
-- **End-of-day job** is run-once per business date (`lending_job_run`), re-runnable for a past date, and uses
+- **End-of-day job** records a claim per business date (`lending_job_run`), accepts a past date, and uses
   `@DynamicUpdate` so concurrent repayments cannot overwrite freshly accrued penalties.
+  The claim is committed before processing, so an interrupted run needs investigation before recovery.
 - **PAR30** (portfolio at risk > 30 days) per agent subtree via recursive CTE: the health metric of a microfinance book.
 - **Simplification to revisit:** loans receivable are tracked in the lending tables, not as ledger accounts. A full
   chart of accounts (assets/liabilities/income/expense with normal balances) is a good next step.

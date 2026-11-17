@@ -1,0 +1,12 @@
+# Shared kernel
+
+The shared module contains types and infrastructure intentionally visible to all modules. It is marked as an open application module in `package-info.java`; domain modules should otherwise interact through public module APIs and events.
+
+## Components
+
+- `money/Money`: immutable currency and integer minor-unit representation. Use it for monetary operations rather than floating-point arithmetic.
+- `error/DomainException` and `web/GlobalExceptionHandler`: stable business error codes mapped to HTTP Problem Details for not-found, conflict and rule-violation cases.
+- `security/`: HTTP Basic authentication, configured users, request-scoped current user and path authorization. `/api/admin/**` requires ADMIN; other `/api/**` requests require authentication. Health, info and Prometheus paths have explicit public rules. This is a development-oriented security setup, not a complete identity or onboarding system.
+- `time/TimeConfig`: supplies the application's clock for components that inject it.
+
+Configuration is under `app.security` and `app.ledger`, with development users in `application-dev.yml`. Do not use the seeded credentials outside a local development environment. Changes to common types affect many modules: run `MoneyTest`, `ModularityTests` and the relevant affected module tests.
