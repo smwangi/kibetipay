@@ -4,14 +4,16 @@ A wallet + P2P transfer platform and an agent-network lending ecosystem, with AI
 credit/risk scoring, anomaly detection, spending insights and a RAG support assistant. Spring Boot 4.1 modular monolith. Design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Prerequisites
-- Java 25 (LTS), Maven 3.9+, Docker (for Postgres/pgvector, Ollama and Testcontainers)
+- Java 25 (LTS), Maven 3.9+, and Docker for the local services and Testcontainers integration tests.
+- The current Maven configuration includes the Google GenAI starter and requires the relevant model credentials/configuration, including `GEMINI_API_KEY`. The compose file also starts Ollama, but the current Maven dependencies do not include the Ollama model starter.
 
 ## Run
 ```bash
-mvn spring-boot:run          # dev profile; Docker Compose starts postgres + ollama
+mvn spring-boot:run          # dev profile; Docker Compose starts the local services
 ```
-First start pulls `llama3.2` and `nomic-embed-text` into Ollama (a few GB, one time).
-To use OpenAI or Anthropic instead, swap the `spring-ai-starter-model-ollama` dependency and set the API key via env var.
+The configuration includes Ollama model settings; installing and configuring an appropriate model
+starter is necessary before treating those settings as an active Ollama integration. Ensure the
+selected embedding model is compatible with the configured pgvector dimensions.
 
 ## Try it
 Dev users: borrowers `alice / alice-dev`, `bob / bob-dev`; agents `wanjiru / wanjiru-dev` (top agent) and
@@ -47,8 +49,15 @@ com.samwan.kibetipay
 ├── mobilemoney MobileMoneyGateway port + @Fallback M-Pesa simulator
 ├── agent       agent -> sub-agent network, float wallets
 ├── lending     products, scorecard, approval saga, repayments, commissions, EOD job, PAR
-└── search      OpenSearch read model: event projections, full-text search + facets (dev profile only)
+├── notification  durable in-app lending notifications
+└── search      optional OpenSearch read model: event projections, full-text search + facets
 ```
+
+Each module has a detailed README next to its code:
+
+- [Shared](src/main/java/com/samwan/kibetipay/shared/README.md), [wallet](src/main/java/com/samwan/kibetipay/wallet/README.md), [transfers](src/main/java/com/samwan/kibetipay/transfer/README.md), and [risk](src/main/java/com/samwan/kibetipay/risk/README.md).
+- [Agents](src/main/java/com/samwan/kibetipay/agent/README.md), [lending](src/main/java/com/samwan/kibetipay/lending/README.md), [mobile money](src/main/java/com/samwan/kibetipay/mobilemoney/README.md), and [notifications](src/main/java/com/samwan/kibetipay/notification/README.md).
+- [Anomaly detection](src/main/java/com/samwan/kibetipay/anomaly/README.md), [insights](src/main/java/com/samwan/kibetipay/insights/README.md), [assistant](src/main/java/com/samwan/kibetipay/assistant/README.md), and [search](src/main/java/com/samwan/kibetipay/search/README.md).
 
 Loan events also create a durable in-app notification inbox. Borrowers can list their latest 100
 messages at `GET /api/notifications` and mark a message read with
@@ -56,3 +65,24 @@ messages at `GET /api/notifications` and mark a message read with
 including the originating loan and repayment, at `GET /api/agents/me/commissions`.
 These notifications are in-app records; SMS delivery and external payout reconciliation are not
 implemented. Commissions are credited directly to agent wallets and are not external payouts.
+
+Administrators can import expected payments and provider transaction evidence with
+`POST /api/admin/mobile-money/expected-payments` and `POST /api/admin/mobile-money/provider-transactions`.
+`GET /api/admin/mobile-money/reconciliation` compares the latest 500 rows and flags missing,
+unmatched, duplicate-reference and mismatched evidence. Amounts are in minor units. This is a
+manual evidence comparison: it does not query a provider, verify imported statements, post to the
+ledger, or resolve suspense items. Unique provider references prevent the same statement line from
+being imported twice.
+
+For example, an administrator can import an expected KES 100 collection and the corresponding
+provider statement line (the reference values are examples):
+
+```bash
+curl -u admin:admin-dev -X POST localhost:8080/api/admin/mobile-money/expected-payments \
+  -H 'Content-Type: application/json' \
+  -d '{"provider":"example","reference":"payment-1","direction":"COLLECTION","amountMinor":10000,"currency":"KES"}'
+curl -u admin:admin-dev -X POST localhost:8080/api/admin/mobile-money/provider-transactions \
+  -H 'Content-Type: application/json' \
+  -d '{"provider":"example","providerReference":"receipt-1","expectedReference":"payment-1","direction":"COLLECTION","amountMinor":10000,"currency":"KES","occurredAt":"2026-01-01T12:00:00Z"}'
+curl -u admin:admin-dev localhost:8080/api/admin/mobile-money/reconciliation
+```
