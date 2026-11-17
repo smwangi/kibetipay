@@ -10,11 +10,14 @@ public interface TransferQueries {
 
     Optional<TransferView> byId(UUID id, String viewerId);
 
+    /** Lookup by the customer-facing reference printed on receipts. */
+    Optional<TransferView> byTxnRef(String txnRef, String viewerId);
+
     List<TransferView> recentFor(String ownerId, int limit);
 
     List<TransferView> inReview(int limit);
 
-    record TransferView(UUID id, String initiatorId, String recipientId, String amount, String currency,
+    record TransferView(UUID id, String txnRef, String initiatorId, String recipientId, String amount, String currency,
                         String note, String status, Integer riskScore, String failureReason,
                         Instant createdAt, Instant updatedAt) {}
 }

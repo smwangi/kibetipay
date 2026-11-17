@@ -1,5 +1,6 @@
 package com.samwan.kibetipay.mobilemoney.internal;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import com.samwan.kibetipay.shared.security.CurrentUser;
 import com.samwan.kibetipay.shared.error.DomainException;
 import jakarta.validation.Valid;
@@ -41,7 +42,7 @@ class ReconciliationController {
 
     @PostMapping("/api/admin/mobile-money/expected-payments")
     Imported expected(@Valid @RequestBody Expected e) {
-        UUID id = UUID.randomUUID();
+        UUID id = Ids.newId();
         try { jdbc.sql("""
                 INSERT INTO mobilemoney_expected_payment (id, provider, reference, direction, amount_minor, currency, created_by)
                 VALUES (:id, :provider, :reference, :direction, :amount, :currency, :user)
@@ -56,7 +57,7 @@ class ReconciliationController {
 
     @PostMapping("/api/admin/mobile-money/provider-transactions")
     Imported transaction(@Valid @RequestBody ProviderTransaction p) {
-        UUID id = UUID.randomUUID();
+        UUID id = Ids.newId();
         try { jdbc.sql("""
                 INSERT INTO mobilemoney_provider_transaction
                     (id, provider, provider_reference, expected_reference, direction, amount_minor, currency, occurred_at, imported_by)

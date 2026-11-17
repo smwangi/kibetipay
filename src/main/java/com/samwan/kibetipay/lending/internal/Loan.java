@@ -1,5 +1,6 @@
 package com.samwan.kibetipay.lending.internal;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import com.samwan.kibetipay.lending.internal.calc.RepaymentAllocator;
@@ -118,7 +119,7 @@ class Loan {
     static Loan apply(String borrowerId, UUID agentId, String agentUserId, Product product, Money principal,
                       String idempotencyKey) {
         var l = new Loan();
-        l.id = UUID.randomUUID();
+        l.id = Ids.newId();
         l.borrowerId = borrowerId;
         l.agentId = agentId;
         l.agentUserId = agentUserId;

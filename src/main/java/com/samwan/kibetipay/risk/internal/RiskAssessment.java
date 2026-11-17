@@ -1,5 +1,6 @@
 package com.samwan.kibetipay.risk.internal;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import com.samwan.kibetipay.risk.RiskApi.RiskDecision;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -35,7 +36,7 @@ class RiskAssessment {
     }
 
     RiskAssessment(RiskDecision d, String subjectId) {
-        this.id = UUID.randomUUID();
+        this.id = Ids.newId();
         this.transactionId = d.transactionId();
         this.subjectId = subjectId;
         this.score = d.score();

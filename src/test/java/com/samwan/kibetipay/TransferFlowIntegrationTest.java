@@ -5,6 +5,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import com.samwan.kibetipay.shared.money.Money;
 import com.samwan.kibetipay.shared.error.DomainException;
 import com.samwan.kibetipay.transfer.TransferQueries;
@@ -56,11 +57,19 @@ class TransferFlowIntegrationTest {
 
         assertThat(retry.transferId()).isEqualTo(first.transferId());
         assertThat(retry.replayed()).isTrue();
+        assertThat(Ids.isTxnRef(first.txnRef())).isTrue();
+        assertThat(retry.txnRef()).isEqualTo(first.txnRef());
+        assertThat(first.transferId().version()).isEqualTo(7);
 
         // First transfer for alice -> "first_transfer" (15) only, well under review threshold.
         awaitStatus(first.transferId(), alice, "COMPLETED");
         assertThat(wallets.get(alice, "KES").balance()).isEqualTo(Money.of(4_000_00, "KES"));
         assertThat(wallets.get(bob, "KES").balance()).isEqualTo(Money.of(1_000_00, "KES"));
+
+        // Both parties can find it by the receipt reference; outsiders cannot.
+        assertThat(queries.byTxnRef(first.txnRef(), bob)).get()
+                .extracting(TransferQueries.TransferView::id).isEqualTo(first.transferId());
+        assertThat(queries.byTxnRef(first.txnRef(), "mallory-" + UUID.randomUUID())).isEmpty();
     }
 
     @Test

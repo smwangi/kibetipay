@@ -1,5 +1,6 @@
 package com.samwan.kibetipay.notification.internal;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import com.samwan.kibetipay.lending.LendingEvents.LoanDeclined;
 import com.samwan.kibetipay.lending.LendingEvents;
 import com.samwan.kibetipay.lending.LendingEvents.LoanDisbursed;
@@ -8,7 +9,6 @@ import com.samwan.kibetipay.lending.LendingEvents.LoanOffered;
 import com.samwan.kibetipay.lending.LendingEvents.RepaymentReceived;
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
@@ -56,7 +56,7 @@ class LendingNotifications {
                 INSERT INTO notification_message (id, recipient_id, event_key, kind, message, created_at)
                 VALUES (:id, :recipient, :key, :kind, :message, :at)
                 ON CONFLICT (event_key) DO NOTHING
-                """).param("id", UUID.randomUUID()).param("recipient", recipient).param("key", key)
+                """).param("id", Ids.newId()).param("recipient", recipient).param("key", key)
                 .param("kind", kind).param("message", message).param("at", Timestamp.from(at)).update();
     }
 }

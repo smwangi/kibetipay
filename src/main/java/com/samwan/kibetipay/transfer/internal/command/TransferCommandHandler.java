@@ -22,7 +22,10 @@ public class TransferCommandHandler {
     public record InitiateTransfer(String initiatorId, String recipientId, Money amount, String note,
                                    String idempotencyKey) {}
 
-    public record Accepted(UUID transferId, boolean replayed) {}
+    public record Accepted(UUID transferId, String txnRef, boolean replayed) {}
+
+    /** A fresh txn_ref colliding twice in a row means something other than bad luck is wrong. */
+    private static final int MAX_INSERT_ATTEMPTS = 2;
 
     private final TransferRepository transfers;
     private final WalletApi wallets;
@@ -46,19 +49,26 @@ public class TransferCommandHandler {
             return replay(existing.get(), cmd);
         }
         validate(cmd);
-        try {
-            return tx.execute(status -> {
-                var transfer = Transfer.initiate(cmd.initiatorId(), cmd.recipientId(), cmd.amount(), cmd.note(),
-                        cmd.idempotencyKey());
-                transfers.saveAndFlush(transfer);
-                events.publishEvent(new TransferRequested(transfer.id()));
-                return new Accepted(transfer.id(), false);
-            });
-        } catch (DataIntegrityViolationException concurrentDuplicate) {
-            // Two identical requests raced; the unique constraint picked a winner. Return it.
-            return transfers.findByInitiatorIdAndIdempotencyKey(cmd.initiatorId(), cmd.idempotencyKey())
-                    .map(t -> replay(t, cmd))
-                    .orElseThrow(() -> concurrentDuplicate);
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return tx.execute(status -> {
+                    var transfer = Transfer.initiate(cmd.initiatorId(), cmd.recipientId(), cmd.amount(), cmd.note(),
+                            cmd.idempotencyKey());
+                    transfers.saveAndFlush(transfer);
+                    events.publishEvent(new TransferRequested(transfer.id()));
+                    return new Accepted(transfer.id(), transfer.txnRef(), false);
+                });
+            } catch (DataIntegrityViolationException conflict) {
+                // Usually two identical requests raced and the idempotency constraint picked a winner.
+                var winner = transfers.findByInitiatorIdAndIdempotencyKey(cmd.initiatorId(), cmd.idempotencyKey());
+                if (winner.isPresent()) {
+                    return replay(winner.get(), cmd);
+                }
+                // Otherwise the random txn_ref collided (~1 in 10^15 per insert); retry with a new one.
+                if (attempt >= MAX_INSERT_ATTEMPTS) {
+                    throw conflict;
+                }
+            }
         }
     }
 
@@ -89,6 +99,6 @@ public class TransferCommandHandler {
             throw new DomainException.RuleViolation("idempotency_key_reused",
                     "Idempotency-Key was already used for a different transfer");
         }
-        return new Accepted(t.id(), true);
+        return new Accepted(t.id(), t.txnRef(), true);
     }
 }

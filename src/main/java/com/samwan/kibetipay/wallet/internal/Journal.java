@@ -1,5 +1,6 @@
 package com.samwan.kibetipay.wallet.internal;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -50,7 +51,7 @@ class Journal implements Persistable<UUID> {
     }
 
     Journal(String reference, String kind) {
-        this.id = UUID.randomUUID();
+        this.id = Ids.newId();
         this.reference = reference;
         this.kind = kind;
         this.createdAt = Instant.now();

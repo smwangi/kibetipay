@@ -1,5 +1,6 @@
 package com.samwan.kibetipay.anomaly.internal;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import com.samwan.kibetipay.anomaly.AnomalyEvents.AnomalyDetected;
 import com.samwan.kibetipay.transfer.TransferEvents.TransferCompleted;
 import java.time.Instant;
@@ -7,7 +8,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -84,7 +84,7 @@ class AnomalyDetector {
             return;
         }
 
-        var alertId = UUID.randomUUID();
+        var alertId = Ids.newId();
         jdbc.sql("""
                         INSERT INTO anomaly_alert (id, owner_id, transfer_id, kind, z_score, details, created_at)
                         VALUES (:id, :owner, :transfer, 'DAILY_OUTFLOW_SPIKE', :z, :details, :at)

@@ -1,5 +1,6 @@
 package com.samwan.kibetipay.mobilemoney.internal;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import com.samwan.kibetipay.mobilemoney.MobileMoneyGateway;
 import com.samwan.kibetipay.mobilemoney.internal.CollectionState.Status;
 import com.samwan.kibetipay.shared.error.DomainException;
@@ -37,7 +38,7 @@ class CollectionService {
     }
 
     Result initiate(String owner, String key, String msisdn, Money amount) {
-        var request = new MobileMoneyGateway.CollectionRequest(UUID.randomUUID().toString(), msisdn, amount,
+        var request = new MobileMoneyGateway.CollectionRequest(Ids.newId().toString(), msisdn, amount,
                 "wallet", "Wallet deposit");
         if (!wallets.exists(owner, amount.currencyCode())) {
             throw new WalletApi.WalletNotFoundException(owner, amount.currencyCode());

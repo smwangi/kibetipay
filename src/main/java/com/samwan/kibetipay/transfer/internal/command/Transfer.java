@@ -1,5 +1,6 @@
 package com.samwan.kibetipay.transfer.internal.command;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import com.samwan.kibetipay.shared.error.DomainException;
@@ -44,6 +45,9 @@ public class Transfer {
 
     @Id
     private UUID id;
+    /** Customer-facing reference for receipts and support; the UUID stays internal. */
+    @Column(name = "txn_ref", nullable = false, updatable = false, length = 16)
+    private String txnRef;
     @Column(name = "initiator_id", nullable = false, updatable = false)
     private String initiatorId;
     @Column(name = "recipient_id", nullable = false, updatable = false)
@@ -79,7 +83,8 @@ public class Transfer {
     static Transfer initiate(String initiatorId, String recipientId, Money amount, String note,
                              String idempotencyKey) {
         var t = new Transfer();
-        t.id = UUID.randomUUID();
+        t.id = Ids.newId();
+        t.txnRef = Ids.newTxnRef();
         t.initiatorId = initiatorId;
         t.recipientId = recipientId;
         t.amountMinor = amount.minor();
@@ -138,6 +143,7 @@ public class Transfer {
     }
 
     public UUID id() { return id; }
+    public String txnRef() { return txnRef; }
     public String initiatorId() { return initiatorId; }
     public String recipientId() { return recipientId; }
     public Money amount() { return Money.of(amountMinor, currency); }

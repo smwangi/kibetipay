@@ -1,5 +1,6 @@
 package com.samwan.kibetipay.lending.internal;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import com.samwan.kibetipay.lending.internal.calc.RepaymentAllocator;
 import com.samwan.kibetipay.lending.internal.calc.ScheduleCalculator;
 import jakarta.persistence.Column;
@@ -64,7 +65,7 @@ class Installment {
     }
 
     Installment(Loan loan, ScheduleCalculator.Line line) {
-        this.id = UUID.randomUUID();
+        this.id = Ids.newId();
         this.loan = loan;
         this.seq = line.seq();
         this.dueDate = line.dueDate();

@@ -1,9 +1,9 @@
 package com.samwan.kibetipay.wallet.internal;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import com.samwan.kibetipay.wallet.WalletApi.SystemAccounts;
 import com.samwan.kibetipay.shared.money.CurrencyRegistry;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.Ordered;
@@ -64,7 +64,7 @@ class PlatformCurrencyInitializer implements ApplicationRunner {
                     INSERT INTO wallet_account (id, owner_id, currency, type, status, balance_minor, allow_negative, version, created_at)
                     VALUES (:id, :owner, :currency, 'SYSTEM', 'ACTIVE', 0, :negative, 0, now())
                     ON CONFLICT (owner_id, currency) WHERE type = 'SYSTEM' DO NOTHING
-                    """).param("id", UUID.randomUUID()).param("owner", account.owner())
+                    """).param("id", Ids.newId()).param("owner", account.owner())
                     .param("currency", currency).param("negative", account.allowNegative()).update();
         }
     }

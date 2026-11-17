@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 class TransferQueryService implements TransferQueries {
 
     private static final String SELECT = """
-            SELECT id, initiator_id, recipient_id, amount_minor, currency, note, status,
+            SELECT id, txn_ref, initiator_id, recipient_id, amount_minor, currency, note, status,
                    risk_score, failure_reason, created_at, updated_at
             FROM transfer
             """;
@@ -36,6 +36,15 @@ class TransferQueryService implements TransferQueries {
         // Authorisation in the query itself: you only see transfers you are part of.
         return jdbc.sql(SELECT + " WHERE id = :id AND (initiator_id = :viewer OR recipient_id = :viewer)")
                 .param("id", id)
+                .param("viewer", viewerId)
+                .query(TransferQueryService::map)
+                .optional();
+    }
+
+    @Override
+    public Optional<TransferView> byTxnRef(String txnRef, String viewerId) {
+        return jdbc.sql(SELECT + " WHERE txn_ref = :ref AND (initiator_id = :viewer OR recipient_id = :viewer)")
+                .param("ref", txnRef)
                 .param("viewer", viewerId)
                 .query(TransferQueryService::map)
                 .optional();
@@ -66,6 +75,7 @@ class TransferQueryService implements TransferQueries {
         var amount = Money.of(rs.getLong("amount_minor"), rs.getString("currency"));
         return new TransferView(
                 rs.getObject("id", UUID.class),
+                rs.getString("txn_ref"),
                 rs.getString("initiator_id"),
                 rs.getString("recipient_id"),
                 amount.toMajor().toPlainString(),
