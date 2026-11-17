@@ -60,14 +60,16 @@ class RepaymentService {
     @Observed(name = "lending.repay")
     @Transactional
     Receipt repay(UUID loanId, String payerId, Channel channel, Money amount, String reference) {
-        var replay = findByReference(reference);
-        if (replay != null) {
-            return replay;
-        }
-
         var loan = loans.findForUpdate(loanId)
                 .orElseThrow(() -> new DomainException.NotFound("loan_not_found", "No loan " + loanId));
         authorise(loan, payerId, channel);
+        var replay = findByReference(reference, loanId, payerId, channel, amount);
+        if (replay != null) {
+            return replay;
+        }
+        if (!loan.currency().equals(amount.currencyCode())) {
+            throw new DomainException.RuleViolation("currency_mismatch", "Repayment currency does not match loan");
+        }
 
         RepaymentAllocator.Allocation a;
         try {
@@ -158,10 +160,10 @@ class RepaymentService {
         }
     }
 
-    private Receipt findByReference(String reference) {
+    private Receipt findByReference(String reference, UUID loanId, String payerId, Channel channel, Money amount) {
         return jdbc.sql("""
                         SELECT r.id, r.loan_id, r.amount_minor, r.penalty_minor, r.fee_minor, r.interest_minor,
-                               r.principal_minor, l.status, l.currency,
+                               r.principal_minor, r.payer_id, r.channel, l.status, l.currency,
                                (SELECT coalesce(sum(principal_due + interest_due + fee_due + penalty_due
                                        - principal_paid - interest_paid - fee_paid - penalty_paid), 0)
                                 FROM lending_installment WHERE loan_id = r.loan_id) AS outstanding
@@ -169,10 +171,17 @@ class RepaymentService {
                         WHERE r.reference = :ref
                         """)
                 .param("ref", reference)
-                .query((rs, i) -> receipt(rs.getObject("id", UUID.class), rs.getObject("loan_id", UUID.class),
+                .query((rs, i) -> {
+                    if (!loanId.equals(rs.getObject("loan_id", UUID.class)) || !payerId.equals(rs.getString("payer_id"))
+                            || !channel.name().equals(rs.getString("channel")) || amount.minor() != rs.getLong("amount_minor")
+                            || !amount.currencyCode().equals(rs.getString("currency"))) {
+                        throw new DomainException.RuleViolation("idempotency_key_reused", "Idempotency key was used for a different repayment");
+                    }
+                    return receipt(rs.getObject("id", UUID.class), rs.getObject("loan_id", UUID.class),
                         rs.getLong("amount_minor"), rs.getLong("penalty_minor"), rs.getLong("fee_minor"),
                         rs.getLong("interest_minor"), rs.getLong("principal_minor"), rs.getLong("outstanding"),
-                        Loan.Status.REPAID.name().equals(rs.getString("status")), true, rs.getString("currency")))
+                        Loan.Status.REPAID.name().equals(rs.getString("status")), true, rs.getString("currency"));
+                })
                 .optional().orElse(null);
     }
 

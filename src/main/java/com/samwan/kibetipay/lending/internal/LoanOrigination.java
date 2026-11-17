@@ -90,7 +90,7 @@ class LoanOrigination {
     private boolean hasOpenLoan(String borrowerId) {
         return jdbc.sql("""
                         SELECT count(*) FROM lending_loan
-                        WHERE borrower_id = :b AND status IN ('APPLIED', 'IN_REVIEW', 'ACTIVE')
+                        WHERE borrower_id = :b AND status IN ('APPLIED', 'IN_REVIEW', 'ACTIVE', 'DEFAULTED')
                         """)
                 .param("b", borrowerId).query(Long.class).single() > 0;
     }
