@@ -39,7 +39,15 @@ import java.util.UUID;
 @Table(name = "lending_loan")
 class Loan {
 
-    enum Status { OFFERED, APPLIED, IN_REVIEW, DECLINED, ACTIVE, REPAID, DEFAULTED }
+    enum Status {
+        OFFERED,
+        APPLIED,
+        IN_REVIEW,
+        DECLINED,
+        ACTIVE,
+        REPAID,
+        DEFAULTED
+    }
 
     @Id
     private UUID id;
@@ -127,12 +135,15 @@ class Loan {
 
     boolean borrowerRespond(boolean accept, Instant at) {
         String decision = accept ? "ACCEPT" : "DECLINE";
-        if (decision.equals(borrowerDecision)) return false;
+        if (decision.equals(borrowerDecision)) {
+            return false;
+        }
         require(EnumSet.of(Status.OFFERED));
         borrowerDecision = decision;
         borrowerDecidedAt = at;
-        if (accept) status = Status.APPLIED;
-        else {
+        if (accept) {
+            status = Status.APPLIED;
+        } else {
             status = Status.DECLINED;
             decisionReasons = "borrower_declined";
             closedAt = at;

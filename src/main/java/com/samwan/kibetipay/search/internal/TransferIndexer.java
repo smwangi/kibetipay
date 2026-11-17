@@ -23,7 +23,11 @@ import org.springframework.stereotype.Component;
 @ConditionalOnBooleanProperty("app.search.enabled")
 class TransferIndexer {
 
-    private enum Status { HELD_FOR_REVIEW, COMPLETED, REJECTED }
+    private enum Status {
+        HELD_FOR_REVIEW,
+        COMPLETED,
+        REJECTED
+    }
 
     static final Map<String, Integer> RANKS = Map.of(Status.HELD_FOR_REVIEW.name(), 1, Status.COMPLETED.name(), 2, Status.REJECTED.name(), 2);
 

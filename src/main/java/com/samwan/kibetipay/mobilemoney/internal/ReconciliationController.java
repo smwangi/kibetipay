@@ -31,7 +31,10 @@ class ReconciliationController {
                     @NotBlank @Size(max=100) String providerReference, @Size(max=100) String expectedReference,
                     @NotNull Direction direction, @Positive long amountMinor,
                     @NotBlank @Pattern(regexp="[A-Z]{3}") String currency, @NotNull Instant occurredAt) {}
-    enum Direction { COLLECTION, PAYOUT }
+    enum Direction {
+        COLLECTION,
+        PAYOUT
+    }
     record Imported(UUID id) {}
     record Comparison(UUID expectedId, String provider, String reference, UUID transactionId,
                       String providerReference, String result) {}

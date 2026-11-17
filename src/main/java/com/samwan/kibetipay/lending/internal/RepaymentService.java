@@ -33,7 +33,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 class RepaymentService {
 
-    enum Channel { WALLET, AGENT_CASH }
+    enum Channel {
+        WALLET,
+        AGENT_CASH
+    }
 
     record Receipt(UUID repaymentId, UUID loanId, String paid, String penalty, String fee, String interest,
                    String principal, String outstanding, boolean loanClosed, boolean replayed) {}

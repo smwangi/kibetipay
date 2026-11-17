@@ -38,7 +38,10 @@ public interface WalletApi {
     PostingReceipt postJournal(JournalRequest request);
 
     record Leg(String ownerId, Side side, Money amount) {
-        public enum Side { DEBIT, CREDIT }
+        public enum Side {
+            DEBIT,
+            CREDIT
+        }
 
         public static Leg debit(String ownerId, Money amount) {
             return new Leg(ownerId, Side.DEBIT, amount);
@@ -73,12 +76,18 @@ public interface WalletApi {
 
     List<StatementLine> statement(String ownerId, String currency, int limit);
 
-    enum WalletStatus { ACTIVE, FROZEN }
+    enum WalletStatus {
+        ACTIVE,
+        FROZEN
+    }
 
     record WalletView(UUID id, String ownerId, Money balance, WalletStatus status, Instant createdAt) {}
 
     record Posting(String reference, String fromOwnerId, String toOwnerId, Money amount, Kind kind) {
-        public enum Kind { TRANSFER, REVERSAL }
+        public enum Kind {
+            TRANSFER,
+            REVERSAL
+        }
     }
 
     /** The balance is for the first debit owner after the entire journal, including on replay. */

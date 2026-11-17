@@ -124,7 +124,9 @@ class LoanDecisionSaga {
         try {
             tx.executeWithoutResult(s -> {
                 var l = loans.findForUpdate(loanId).orElseThrow();
-                if (l.status() == Loan.Status.ACTIVE) return;
+                if (l.status() == Loan.Status.ACTIVE) {
+                    return;
+                }
                 if (l.status() != Loan.Status.APPLIED && l.status() != Loan.Status.IN_REVIEW) {
                     throw new DomainException.Conflict("invalid_loan_state", "Loan " + loanId + " is " + l.status());
                 }

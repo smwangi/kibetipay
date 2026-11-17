@@ -21,9 +21,15 @@ import java.util.UUID;
 @Table(name = "wallet_account")
 class WalletAccount {
 
-    enum Type { USER, SYSTEM }
+    enum Type {
+        USER,
+        SYSTEM
+    }
 
-    enum Status { ACTIVE, FROZEN }
+    enum Status {
+        ACTIVE,
+        FROZEN
+    }
 
     @Id
     private UUID id;

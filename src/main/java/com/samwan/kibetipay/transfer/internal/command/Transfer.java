@@ -32,7 +32,13 @@ import java.util.UUID;
 @Table(name = "transfer")
 public class Transfer {
 
-    public enum Status { PENDING_RISK, IN_REVIEW, COMPLETED, REJECTED, FAILED }
+    public enum Status {
+        PENDING_RISK,
+        IN_REVIEW,
+        COMPLETED,
+        REJECTED,
+        FAILED
+    }
 
     private static final Set<Status> CAN_COMPLETE = EnumSet.of(Status.PENDING_RISK, Status.IN_REVIEW);
 

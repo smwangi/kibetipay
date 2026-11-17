@@ -25,7 +25,12 @@ import org.springframework.stereotype.Component;
 @ConditionalOnBooleanProperty("app.search.enabled")
 class LoanIndexer {
 
-    private enum Status { ACTIVE, DEFAULTED, REPAID, DECLINED }
+    private enum Status {
+        ACTIVE,
+        DEFAULTED,
+        REPAID,
+        DECLINED
+    }
 
     static final Map<String, Integer> RANKS = Map.of(Status.ACTIVE.name(), 1, Status.DEFAULTED.name(), 2, Status.REPAID.name(), 3, Status.DECLINED.name(), 3);
 

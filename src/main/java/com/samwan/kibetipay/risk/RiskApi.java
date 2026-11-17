@@ -23,6 +23,10 @@ public interface RiskApi {
     record RiskDecision(UUID transactionId, int score, Outcome outcome, List<String> reasons,
                         String explanation) {
 
-        public enum Outcome { APPROVE, REVIEW, REJECT }
+        public enum Outcome {
+            APPROVE,
+            REVIEW,
+            REJECT
+        }
     }
 }

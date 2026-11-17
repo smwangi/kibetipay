@@ -29,6 +29,8 @@ class NotificationController {
     void read(@PathVariable UUID id) {
         int updated = jdbc.sql("UPDATE notification_message SET read_at = coalesce(read_at, now()) WHERE id = :id AND recipient_id = :user")
                 .param("id", id).param("user", CurrentUser.id()).update();
-        if (updated == 0) throw new DomainException.NotFound("notification_not_found", "No notification " + id);
+        if (updated == 0) {
+            throw new DomainException.NotFound("notification_not_found", "No notification " + id);
+        }
     }
 }
