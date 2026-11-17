@@ -3,6 +3,7 @@ package com.samwan.kibetipay.lending.internal;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import com.samwan.kibetipay.lending.internal.calc.RepaymentAllocator;
+import com.samwan.kibetipay.lending.LendingEvents;
 import com.samwan.kibetipay.lending.internal.calc.ScheduleCalculator;
 import com.samwan.kibetipay.shared.error.DomainException;
 import com.samwan.kibetipay.shared.money.Money;
@@ -47,6 +48,11 @@ class Loan {
         ACTIVE,
         REPAID,
         DEFAULTED
+    }
+
+    enum BorrowerDecision {
+        ACCEPT,
+        DECLINE
     }
 
     @Id
@@ -134,7 +140,7 @@ class Loan {
     }
 
     boolean borrowerRespond(boolean accept, Instant at) {
-        String decision = accept ? "ACCEPT" : "DECLINE";
+        String decision = (accept ? BorrowerDecision.ACCEPT : BorrowerDecision.DECLINE).name();
         if (decision.equals(borrowerDecision)) {
             return false;
         }
@@ -145,7 +151,7 @@ class Loan {
             status = Status.APPLIED;
         } else {
             status = Status.DECLINED;
-            decisionReasons = "borrower_declined";
+            decisionReasons = LendingEvents.BORROWER_DECLINED;
             closedAt = at;
         }
         return true;

@@ -38,27 +38,27 @@ class DevDataSeeder implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        String kes = wallets.defaultCurrency();
+        String currency = wallets.defaultCurrency();
         for (String user : List.of("alice", "bob")) {
-            if (!wallets.exists(user, kes)) {
-                wallets.open(user, kes);
+            if (!wallets.exists(user, currency)) {
+                wallets.open(user, currency);
             }
         }
-        wallets.deposit("alice", Money.of(1_000_000, kes), "seed:deposit:alice");   // KES 10,000
-        wallets.deposit("bob", Money.of(300_000, kes), "seed:deposit:bob");         // KES 3,000
+        wallets.deposit("alice", Money.of(1_000_000, currency), "seed:deposit:alice");
+        wallets.deposit("bob", Money.of(300_000, currency), "seed:deposit:bob");
 
         if (agents.byUser("wanjiru").isEmpty()) {
-            agents.registerTopAgent(new NewAgent("wanjiru", "Wanjiru Agencies", "Nairobi", Money.of(50_000_000, kes)));
+            agents.registerTopAgent(new NewAgent("wanjiru", "Wanjiru Agencies", "Nairobi", Money.of(50_000_000, currency)));
         }
         if (agents.byUser("otieno").isEmpty()) {
-            agents.registerSubAgent("wanjiru", new NewAgent("otieno", "Otieno Kisumu", "Kisumu", Money.of(10_000_000, kes)));
+            agents.registerSubAgent("wanjiru", new NewAgent("otieno", "Otieno Kisumu", "Kisumu", Money.of(10_000_000, currency)));
         }
         // Agent float so agents can record cash collections.
-        wallets.deposit("wanjiru", Money.of(2_000_000, kes), "seed:float:wanjiru");
-        wallets.deposit("otieno", Money.of(1_000_000, kes), "seed:float:otieno");
+        wallets.deposit("wanjiru", Money.of(2_000_000, currency), "seed:float:wanjiru");
+        wallets.deposit("otieno", Money.of(1_000_000, currency), "seed:float:otieno");
 
-        // Capital: KES 1,000,000 into the lending pool.
-        var capital = Money.of(100_000_000, kes);
+        // Demo capital is specified in minor units of the configured currency.
+        var capital = Money.of(100_000_000, currency);
         wallets.postJournal(new JournalRequest("seed:pool:capital", LendingJournalKinds.CAPITAL,
                 List.of(Leg.debit(SystemAccounts.FLOAT, capital), Leg.credit(SystemAccounts.LENDING_POOL, capital))));
         log.info("Dev data ready: agents wanjiru > otieno, borrowers alice & bob, pool funded");

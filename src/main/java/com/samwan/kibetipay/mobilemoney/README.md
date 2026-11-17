@@ -4,7 +4,7 @@
 
 ## Wallet collection lifecycle
 
-`POST /api/mobile-money/collections` accepts `{"msisdn":"254712345678","amount":100.00}` and an `Idempotency-Key` of 8–64 letters, digits or hyphens. The authenticated user must have a wallet. The endpoint returns a collection ID, provider request ID when known, and status; `GET /api/mobile-money/collections/{id}` is scoped to the owner. Reusing a key with different amount, currency or phone number produces a conflict.
+`POST /api/mobile-money/collections` accepts `{"msisdn":"254712345678","amount":100.00}` and an `Idempotency-Key` of 8–64 letters, digits or hyphens. The number is 8–15 international digits without the leading plus; individual provider adapters must impose any narrower country or network rules. The simulator does not establish that a payment provider is available in a country. The authenticated user must have a wallet. The endpoint returns a collection ID, provider request ID when known, and status; `GET /api/mobile-money/collections/{id}` is scoped to the owner. Reusing a key with different amount, currency or phone number produces a conflict.
 
 The service commits `SUBMITTING` before calling the gateway. An accepted request becomes `PENDING`, a rejected request becomes `REJECTED`, and an exception or malformed response becomes `UNKNOWN`. A crash during submission may leave `SUBMITTING`. Neither uncertain state is automatically resubmitted: the provider might already have accepted the payment. Operators must investigate; automated recovery and a resolution API are not yet implemented.
 

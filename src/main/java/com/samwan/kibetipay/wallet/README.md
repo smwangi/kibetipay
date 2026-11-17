@@ -1,6 +1,8 @@
 # Wallet and ledger
 
-The wallet module is the source of truth for wallet balances and monetary journals. Other modules call [WalletApi](WalletApi.java); persistence and controllers are in `internal/`. Amounts use `Money` and integer minor units. The configured default currency is `app.ledger.default-currency` (KES by default).
+The wallet module is the source of truth for wallet balances and monetary journals. Other modules call [WalletApi](WalletApi.java); persistence and controllers are in `internal/`. Amounts use `Money` and integer minor units. `app.ledger.default-currency` is supplied by `KIBETIPAY_CURRENCY` and defaults to KES. Set it to a two-fraction-digit ISO currency before onboarding, e.g. USD or TZS.
+
+The application currently operates a single currency per deployment; it does not choose currency per client or perform FX. V8 identifies the currency of existing financial records without changing them. At startup, `PlatformCurrencyInitializer` records the operating currency and creates missing system wallets for it. A later change to that currency is rejected rather than converting existing money. If a legacy database already contains multiple currencies, V8 fails and requires a deliberate migration. System wallets seeded in KES by earlier migrations remain untouched and unused in a fresh deployment configured for another currency. Review currency-denominated product amounts and risk limits when configuring a new market.
 
 ## Interface
 

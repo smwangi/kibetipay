@@ -13,6 +13,11 @@ import java.util.UUID;
  */
 public interface AgentApi {
 
+    enum Status {
+        ACTIVE,
+        SUSPENDED
+    }
+
     AgentView registerTopAgent(NewAgent request);
 
     AgentView registerSubAgent(String parentUserId, NewAgent request);
@@ -36,7 +41,7 @@ public interface AgentApi {
                      int depth, String status, Money lendingLimit, Instant createdAt) {
 
         public boolean isActive() {
-            return "ACTIVE".equals(status);
+            return Status.ACTIVE.name().equals(status);
         }
     }
 

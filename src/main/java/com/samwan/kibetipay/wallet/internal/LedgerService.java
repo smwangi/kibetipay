@@ -45,6 +45,7 @@ class LedgerService implements WalletApi {
     @Override
     @Transactional
     public WalletView open(String ownerId, String currency) {
+        requirePlatformCurrency(currency);
         if (wallets.existsByOwnerIdAndCurrency(ownerId, currency)) {
             throw new DomainException.Conflict("wallet_exists", ownerId + " already has a " + currency + " wallet");
         }
@@ -54,6 +55,7 @@ class LedgerService implements WalletApi {
     @Override
     @Transactional(readOnly = true)
     public WalletView get(String ownerId, String currency) {
+        requirePlatformCurrency(currency);
         return wallets.findByOwnerIdAndCurrency(ownerId, currency)
                 .map(LedgerService::toView)
                 .orElseThrow(() -> new WalletNotFoundException(ownerId, currency));
@@ -62,6 +64,7 @@ class LedgerService implements WalletApi {
     @Override
     @Transactional(readOnly = true)
     public boolean exists(String ownerId, String currency) {
+        requirePlatformCurrency(currency);
         return wallets.existsByOwnerIdAndCurrency(ownerId, currency);
     }
 
@@ -96,6 +99,7 @@ class LedgerService implements WalletApi {
             throw new IllegalArgumentException("A journal needs at least two legs");
         }
         String currency = legs.getFirst().amount().currencyCode();
+        requirePlatformCurrency(currency);
         if (legs.stream().anyMatch(l -> l.amount().isNegative()
                 || !currency.equals(l.amount().currencyCode()))) {
             throw new IllegalArgumentException("Journal amounts must be non-negative and use one currency");
@@ -175,6 +179,12 @@ class LedgerService implements WalletApi {
             throw new WalletNotFoundException(owner, currency);
         }
         return w;
+    }
+
+    private void requirePlatformCurrency(String currency) {
+        if (!props.defaultCurrency().equals(currency)) {
+            throw new DomainException.RuleViolation("currency_mismatch", "Currency must match the configured platform currency");
+        }
     }
 
     @Override

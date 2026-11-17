@@ -29,4 +29,15 @@ class MoneyTest {
     void formatsForHumans() {
         assertThat(Money.of(150050, "KES")).hasToString("KES 1500.50");
     }
+
+    @Test
+    void respectsZeroThreeAndFourFractionalDigits() {
+        assertThat(Money.ofMajor(new BigDecimal("123"), "JPY").minor()).isEqualTo(123);
+        assertThat(Money.ofMajor(new BigDecimal("1.234"), "KWD").minor()).isEqualTo(1234);
+        assertThat(Money.ofMajor(new BigDecimal("1.2345"), "CLF").minor()).isEqualTo(12345);
+        assertThat(Money.of(1234, "KWD").toMajor()).isEqualByComparingTo("1.234");
+        assertThatThrownBy(() -> Money.ofMajor(new BigDecimal("1.1"), "JPY")).isInstanceOf(ArithmeticException.class);
+        assertThatThrownBy(() -> Money.ofMajor(new BigDecimal("1.2345"), "KWD")).isInstanceOf(ArithmeticException.class);
+        assertThatThrownBy(() -> Money.of(1, "XAU")).isInstanceOf(IllegalArgumentException.class);
+    }
 }

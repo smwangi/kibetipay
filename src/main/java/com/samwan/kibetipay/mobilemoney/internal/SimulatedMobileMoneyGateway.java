@@ -18,11 +18,12 @@ import org.slf4j.LoggerFactory;
  */
 class SimulatedMobileMoneyGateway implements MobileMoneyGateway {
 
+    static final String PROVIDER = "simulator";
     private static final Logger log = LoggerFactory.getLogger(SimulatedMobileMoneyGateway.class);
 
     @Override
     public String provider() {
-        return "simulator";
+        return PROVIDER;
     }
 
     @Override

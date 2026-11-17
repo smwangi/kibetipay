@@ -68,7 +68,7 @@ class CollectionService {
                     || response.providerRequestId().isBlank() || response.status() == null) {
                 markUnknown(id);
             } else {
-                String status = response.status() == MobileMoneyGateway.Status.ACCEPTED ? "PENDING" : "REJECTED";
+                String status = (response.status() == MobileMoneyGateway.Status.ACCEPTED ? Status.PENDING : Status.REJECTED).name();
                 tx.executeWithoutResult(s -> jdbc.sql("""
                         UPDATE mobilemoney_collection SET status = :status, provider_request_id = :providerId, updated_at = :now
                         WHERE id = :id AND status = 'SUBMITTING'
@@ -107,7 +107,7 @@ class CollectionService {
             jdbc.sql("""
                     UPDATE mobilemoney_collection SET status = :status, provider_receipt = :receipt,
                       journal_id = :journal, updated_at = :now WHERE id = :id
-                    """).param("status", success ? "COMPLETED" : "FAILED").param("receipt", success ? receipt : null)
+                    """).param("status", (success ? Status.COMPLETED : Status.FAILED).name()).param("receipt", success ? receipt : null)
                     .param("journal", journalId).param("now", Timestamp.from(Instant.now(clock))).param("id", id).update();
             return result(byId(id, null, false), false);
         });

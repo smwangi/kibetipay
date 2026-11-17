@@ -72,10 +72,13 @@ management:
       probability: 0.1
 
 app:
+  currencies:
+    # Registry only: the ledger remains limited to the configured operating currency for now.
+    enabled: ${KIBETIPAY_ENABLED_CURRENCIES:${app.ledger.default-currency}}
   ai:
     enabled: true                     # false = no LLM beans are created; @Fallback no-op beans take over
   ledger:
-    default-currency: KES
+    default-currency: ${KIBETIPAY_CURRENCY:KES}
     float-owner-id: "system:float"
   transfer:
     max-amount-minor: 10000000        # 100,000.00 KES per transfer

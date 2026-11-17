@@ -5,6 +5,7 @@ The shared module contains types and infrastructure intentionally visible to all
 ## Components
 
 - `money/Money`: immutable currency and integer minor-unit representation. Use it for monetary operations rather than floating-point arithmetic.
+- `money/CurrencyRegistry`: the configured list of ISO currency codes and their JDK-provided minor-unit precision. Set `KIBETIPAY_ENABLED_CURRENCIES` to a comma-separated list; it defaults to the configured operating currency, which must be present in the list. Invalid codes, duplicate codes and codes without defined minor-unit precision are rejected. Registry membership alone does not enable wallet operations, lending products or payment providers for that currency: those flows still use the single operating currency until the multi-currency work is completed.
 - `error/DomainException` and `web/GlobalExceptionHandler`: stable business error codes mapped to HTTP Problem Details for not-found, conflict and rule-violation cases.
 - `security/`: HTTP Basic authentication, configured users, request-scoped current user and path authorization. `/api/admin/**` requires ADMIN; other `/api/**` requests require authentication. Health, info and Prometheus paths have explicit public rules. This is a development-oriented security setup, not a complete identity or onboarding system.
 - `time/TimeConfig`: supplies the application's clock for components that inject it.

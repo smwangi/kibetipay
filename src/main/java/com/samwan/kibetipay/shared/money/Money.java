@@ -13,14 +13,17 @@ public record Money(long minor, Currency currency) implements Comparable<Money> 
 
     public Money {
         Objects.requireNonNull(currency, "currency");
+        if (currency.getDefaultFractionDigits() < 0) {
+            throw new IllegalArgumentException("Currency has no defined minor-unit precision: " + currency);
+        }
     }
 
     public static Money of(long minor, String currencyCode) {
-        return new Money(minor, Currency.getInstance(currencyCode));
+        return new Money(minor, CurrencyRegistry.requireCurrency(currencyCode));
     }
 
     public static Money ofMajor(BigDecimal major, String currencyCode) {
-        Currency c = Currency.getInstance(currencyCode);
+        Currency c = CurrencyRegistry.requireCurrency(currencyCode);
         long minor = major.setScale(c.getDefaultFractionDigits(), RoundingMode.UNNECESSARY)
                 .movePointRight(c.getDefaultFractionDigits())
                 .longValueExact();

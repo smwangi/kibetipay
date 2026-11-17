@@ -24,7 +24,7 @@ public interface MobileMoneyGateway {
 
     /**
      * @param idempotencyKey our id for the request; resending the same key must not charge twice
-     * @param msisdn         Kenyan mobile number in international format, e.g. 254712345678
+     * @param msisdn         international number as digits, without a leading plus sign
      */
     record CollectionRequest(String idempotencyKey, String msisdn, Money amount, String accountReference,
                              String description) {
@@ -52,13 +52,15 @@ public interface MobileMoneyGateway {
     }
 
     final class Msisdn {
+        public static final String INTERNATIONAL_PATTERN = "[1-9][0-9]{7,14}";
+
         private Msisdn() {
         }
 
-        /** Safaricom/Airtel style 2547XXXXXXXX or 2541XXXXXXXX. Normalise 07.../+254... at the edge. */
+        /** Provider adapters are responsible for any stricter country or network rules. */
         static void require(String msisdn) {
-            if (msisdn == null || !msisdn.matches("254[17]\\d{8}")) {
-                throw new IllegalArgumentException("MSISDN must look like 254712345678");
+            if (msisdn == null || !msisdn.matches(INTERNATIONAL_PATTERN)) {
+                throw new IllegalArgumentException("MSISDN must contain 8 to 15 international digits without a leading plus");
             }
         }
     }

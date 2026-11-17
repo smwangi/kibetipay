@@ -1,6 +1,7 @@
 package com.samwan.kibetipay.mobilemoney.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.samwan.kibetipay.mobilemoney.MobileMoneyGateway;
 import com.samwan.kibetipay.mobilemoney.MobileMoneyGateway.CollectionRequest;
@@ -39,6 +40,18 @@ class MobileMoneyConfigTest {
         assertThat(retry.providerRequestId()).isEqualTo(first.providerRequestId());
         assertThat(first.status()).isEqualTo(Status.ACCEPTED);
         assertThat(rejected.status()).isEqualTo(Status.REJECTED);
+    }
+
+    @Test
+    void acceptsInternationalNumbersAndRejectsMalformedNumbers() {
+        var usd = Money.of(100, "USD");
+        var tzs = Money.of(100, "TZS");
+        assertThat(new CollectionRequest("us", "12025550123", usd, "wallet", "deposit").msisdn())
+                .isEqualTo("12025550123");
+        assertThat(new CollectionRequest("tz", "255712345678", tzs, "wallet", "deposit").msisdn())
+                .isEqualTo("255712345678");
+        assertThatThrownBy(() -> new CollectionRequest("invalid", "+12025550123", usd, "wallet", "deposit"))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     static class FakeDaraja implements MobileMoneyGateway {

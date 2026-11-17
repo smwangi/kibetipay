@@ -1,6 +1,7 @@
 package com.samwan.kibetipay.lending.internal;
 
 import com.samwan.kibetipay.lending.LendingEvents.LoanApplied;
+import com.samwan.kibetipay.lending.LendingEvents;
 import com.samwan.kibetipay.lending.LendingEvents.LoanDeclined;
 import com.samwan.kibetipay.lending.internal.calc.ScheduleCalculator;
 import com.samwan.kibetipay.shared.error.DomainException;
@@ -66,7 +67,7 @@ class LoanOfferService {
             events.publishEvent(new LoanApplied(id));
         }
         if (changed && !accept) {
-            events.publishEvent(new LoanDeclined(id, borrower, "borrower_declined", now));
+            events.publishEvent(new LoanDeclined(id, borrower, LendingEvents.BORROWER_DECLINED, now));
         }
         return new Response(id, loan.borrowerDecision(), loan.borrowerDecidedAt(), !changed);
     }

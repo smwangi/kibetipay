@@ -21,7 +21,7 @@ class InsightsController {
     InsightsController(InsightsApi insights, ChatClient.Builder builder) {
         this.insights = insights;
         this.chat = builder.defaultSystem("""
-                You are a friendly personal-finance coach. Given a monthly spending summary in KES,
+                You are a friendly personal-finance coach. Given a monthly spending summary,
                 write 3-4 sentences: the biggest categories, one notable pattern and one practical tip.
                 Use only the numbers provided. No investment advice.
                 """).build();

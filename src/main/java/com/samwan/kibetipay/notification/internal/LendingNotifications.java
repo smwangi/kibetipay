@@ -1,6 +1,7 @@
 package com.samwan.kibetipay.notification.internal;
 
 import com.samwan.kibetipay.lending.LendingEvents.LoanDeclined;
+import com.samwan.kibetipay.lending.LendingEvents;
 import com.samwan.kibetipay.lending.LendingEvents.LoanDisbursed;
 import com.samwan.kibetipay.lending.LendingEvents.LoanRepaid;
 import com.samwan.kibetipay.lending.LendingEvents.LoanOffered;
@@ -33,7 +34,7 @@ class LendingNotifications {
     @ApplicationModuleListener
     void declined(LoanDeclined e) {
         insert(e.borrowerId(), "declined:" + e.loanId(), "LOAN_DECLINED",
-                "borrower_declined".equals(e.reasons())
+                LendingEvents.BORROWER_DECLINED.equals(e.reasons())
                         ? "You declined loan offer " + e.loanId() + "."
                         : "Your loan application " + e.loanId() + " was declined.", e.at());
     }

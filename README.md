@@ -3,6 +3,8 @@
 A wallet + P2P transfer platform and an agent-network lending ecosystem, with AI
 credit/risk scoring, anomaly detection, spending insights and a RAG support assistant. Spring Boot 4.1 modular monolith. Design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+Remaining multi-currency and FX work is tracked in the [implementation backlog](docs/BACKLOG.md).
+
 ## Prerequisites
 - Java 25 (LTS), Maven 3.9+, and Docker for the local services and Testcontainers integration tests.
 - The current Maven configuration includes the Google GenAI starter and requires the relevant model credentials/configuration, including `GEMINI_API_KEY`. The compose file also starts Ollama, but the current Maven dependencies do not include the Ollama model starter.
@@ -11,6 +13,17 @@ credit/risk scoring, anomaly detection, spending insights and a RAG support assi
 ```bash
 mvn spring-boot:run          # dev profile; Docker Compose starts the local services
 ```
+Set `KIBETIPAY_CURRENCY` before first use to select the deployment's operating currency, for
+example `USD` or `TZS`; it defaults to `KES`. This is currently **one currency per deployment**,
+not a choice per customer or an FX service. The application supports two-fraction-digit ISO
+currencies for these workflows. Startup refuses to switch an established book to a different
+currency: changing a setting must not relabel existing balances. New currency deployments must
+also review seeded loan products, limits, time zones, and payment-provider availability.
+
+`KIBETIPAY_ENABLED_CURRENCIES` configures the currency registry as a comma-separated list of ISO
+codes. It defaults to the operating currency. The registry records known precision for future
+multi-currency work; adding a code does not yet enable transactions in that currency.
+
 The configuration includes Ollama model settings; installing and configuring an appropriate model
 starter is necessary before treating those settings as an active Ollama integration. Ensure the
 selected embedding model is compatible with the configured pgvector dimensions.

@@ -6,6 +6,8 @@ import java.util.UUID;
 /** Public lending events. A notifications module, CRB reporting or analytics can subscribe later. */
 public final class LendingEvents {
 
+    public static final String BORROWER_DECLINED = "borrower_declined";
+
     private LendingEvents() {
     }
 
