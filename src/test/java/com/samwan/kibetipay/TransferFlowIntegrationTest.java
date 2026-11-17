@@ -1,5 +1,7 @@
 package com.samwan.kibetipay;
 
+import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -32,6 +34,9 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 @Import(TestcontainersConfig.class)
 class TransferFlowIntegrationTest {
+
+    /** The RAG assistant's vector store needs an embedding model; it plays no part in this test. */
+    @MockitoBean EmbeddingModel embeddingModel;
 
     @Autowired WalletApi wallets;
     @Autowired TransferCommandHandler commands;

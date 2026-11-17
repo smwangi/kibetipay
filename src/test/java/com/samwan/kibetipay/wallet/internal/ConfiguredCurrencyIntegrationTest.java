@@ -1,5 +1,7 @@
 package com.samwan.kibetipay.wallet.internal;
 
+import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.samwan.kibetipay.TestcontainersConfig;
@@ -24,6 +26,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Import(TestcontainersConfig.class)
 @Testcontainers(disabledWithoutDocker = true)
 class ConfiguredCurrencyIntegrationTest {
+
+    /** The RAG assistant's vector store needs an embedding model; it plays no part in this test. */
+    @MockitoBean EmbeddingModel embeddingModel;
     @Autowired WalletApi wallets;
     @Autowired JdbcClient jdbc;
     @Autowired TransactionTemplate transactions;
