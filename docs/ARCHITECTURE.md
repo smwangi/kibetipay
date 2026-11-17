@@ -109,7 +109,9 @@ exists and returns the original receipt, and the transfer is marked COMPLETED. N
 
 ```mermaid
 flowchart LR
-    A[Agent originates loan] --> S{Credit scorecard}
+    A[Agent offers loan] --> B{Borrower accepts}
+    B -- yes --> S{Credit scorecard}
+    B -- no --> D[DECLINED]
     S -- hard decline / low --> D[DECLINED]
     S --> L{Agent exposure < limit}
     L -- no --> D

@@ -132,7 +132,7 @@ class LoanDecisionSaga {
                         LendingJournalKinds.LOAN_DISBURSEMENT, List.of(
                         Leg.debit(SystemAccounts.LENDING_POOL, l.principal()),
                         Leg.credit(l.borrowerId(), l.principal()))));
-                l.activate(receipt.journalId(), products.require(l.productCode()), LocalDate.now(clock));
+                l.activate(receipt.journalId(), LocalDate.now(clock));
                 events.publishEvent(new LoanDisbursed(l.id(), l.borrowerId(), l.agentId(), l.principal().minor(),
                         l.currency(), Instant.now(clock)));
             });

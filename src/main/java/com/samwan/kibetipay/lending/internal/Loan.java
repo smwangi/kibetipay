@@ -29,17 +29,17 @@ import java.util.UUID;
  * checks the current state.
  *
  * <pre>
- * APPLIED ─▶ ACTIVE ─▶ REPAID
+ * OFFERED ─▶ APPLIED ─▶ ACTIVE ─▶ REPAID
  *   │  │        └────▶ DEFAULTED (days past due > threshold)
  *   │  └─▶ IN_REVIEW ─▶ ACTIVE | DECLINED
- *   └─▶ DECLINED
+ *   └─▶ DECLINED (including a borrower-declined offer)
  * </pre>
  */
 @Entity
 @Table(name = "lending_loan")
 class Loan {
 
-    enum Status { APPLIED, IN_REVIEW, DECLINED, ACTIVE, REPAID, DEFAULTED }
+    enum Status { OFFERED, APPLIED, IN_REVIEW, DECLINED, ACTIVE, REPAID, DEFAULTED }
 
     @Id
     private UUID id;
@@ -57,6 +57,20 @@ class Loan {
     private long interestMinor;
     @Column(name = "fee_minor", nullable = false)
     private long feeMinor;
+    @Column(name = "interest_bps_snapshot", nullable = false, updatable = false)
+    private int interestBps;
+    @Column(name = "fee_bps_snapshot", nullable = false, updatable = false)
+    private int feeBps;
+    @Column(name = "tenor_days_snapshot", nullable = false, updatable = false)
+    private int tenorDays;
+    @Column(name = "installments_snapshot", nullable = false, updatable = false)
+    private int installmentCount;
+    @Column(name = "penalty_bps_per_day_snapshot", nullable = false, updatable = false)
+    private int penaltyBpsPerDay;
+    @Column(name = "borrower_decision")
+    private String borrowerDecision;
+    @Column(name = "borrower_decided_at")
+    private Instant borrowerDecidedAt;
     @JdbcTypeCode(SqlTypes.CHAR)   // column is CHAR(3) in Flyway; Hibernate defaults to VARCHAR
     @Column(nullable = false, length = 3, updatable = false)
     private String currency;
@@ -100,10 +114,34 @@ class Loan {
         var terms = product.terms(principal.minor());
         l.interestMinor = ScheduleCalculator.interestFor(terms);
         l.feeMinor = ScheduleCalculator.feeFor(terms);
-        l.status = Status.APPLIED;
+        l.interestBps = product.interestBps();
+        l.feeBps = product.feeBps();
+        l.tenorDays = product.tenorDays();
+        l.installmentCount = product.installments();
+        l.penaltyBpsPerDay = product.penaltyBpsPerDay();
+        l.status = Status.OFFERED;
         l.idempotencyKey = idempotencyKey;
         l.appliedAt = Instant.now();
         return l;
+    }
+
+    boolean borrowerRespond(boolean accept, Instant at) {
+        String decision = accept ? "ACCEPT" : "DECLINE";
+        if (decision.equals(borrowerDecision)) return false;
+        require(EnumSet.of(Status.OFFERED));
+        borrowerDecision = decision;
+        borrowerDecidedAt = at;
+        if (accept) status = Status.APPLIED;
+        else {
+            status = Status.DECLINED;
+            decisionReasons = "borrower_declined";
+            closedAt = at;
+        }
+        return true;
+    }
+
+    ScheduleCalculator.Terms offeredTerms() {
+        return new ScheduleCalculator.Terms(principalMinor, interestBps, feeBps, tenorDays, installmentCount);
     }
 
     void scored(int score, String reasons) {
@@ -124,13 +162,13 @@ class Loan {
     }
 
     /** Builds the schedule at disbursement time, so due dates start from the real payout day. */
-    void activate(UUID journalId, Product product, LocalDate today) {
+    void activate(UUID journalId, LocalDate today) {
         require(EnumSet.of(Status.APPLIED, Status.IN_REVIEW));
         disbursementJournalId = journalId;
         disbursedAt = Instant.now();
         status = Status.ACTIVE;
         installments.clear();
-        for (var line : ScheduleCalculator.schedule(product.terms(principalMinor), today)) {
+        for (var line : ScheduleCalculator.schedule(offeredTerms(), today)) {
             installments.add(new Installment(this, line));
         }
     }
@@ -181,4 +219,7 @@ class Loan {
     Status status() { return status; }
     String idempotencyKey() { return idempotencyKey; }
     Instant appliedAt() { return appliedAt; }
+    int penaltyBpsPerDay() { return penaltyBpsPerDay; }
+    String borrowerDecision() { return borrowerDecision; }
+    Instant borrowerDecidedAt() { return borrowerDecidedAt; }
 }

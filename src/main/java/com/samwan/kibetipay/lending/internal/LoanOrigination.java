@@ -1,7 +1,8 @@
 package com.samwan.kibetipay.lending.internal;
 
 import com.samwan.kibetipay.agent.AgentApi;
-import com.samwan.kibetipay.lending.LendingEvents.LoanApplied;
+import com.samwan.kibetipay.lending.LendingEvents.LoanOffered;
+import java.time.Instant;
 import com.samwan.kibetipay.shared.error.DomainException;
 import com.samwan.kibetipay.shared.money.Money;
 import com.samwan.kibetipay.wallet.WalletApi;
@@ -13,8 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Command side: an agent originates a loan for a borrower. Validates, stores APPLIED and publishes
- * LoanApplied in one transaction (outbox); scoring and disbursement happen asynchronously.
+ * Command side: an agent creates an OFFERED loan and publishes LoanOffered in one transaction.
+ * Borrower acceptance publishes LoanApplied to start scoring and disbursement asynchronously.
  */
 @Service
 class LoanOrigination {
@@ -75,7 +76,7 @@ class LoanOrigination {
                 var loan = Loan.apply(cmd.borrowerId(), agent.id(), agent.userId(), product, cmd.principal(),
                         cmd.idempotencyKey());
                 loans.saveAndFlush(loan);
-                events.publishEvent(new LoanApplied(loan.id()));
+                events.publishEvent(new LoanOffered(loan.id(), loan.borrowerId(), Instant.now()));
                 return new Accepted(loan.id(), false);
             });
         } catch (DataIntegrityViolationException e) {
@@ -90,7 +91,7 @@ class LoanOrigination {
     private boolean hasOpenLoan(String borrowerId) {
         return jdbc.sql("""
                         SELECT count(*) FROM lending_loan
-                        WHERE borrower_id = :b AND status IN ('APPLIED', 'IN_REVIEW', 'ACTIVE', 'DEFAULTED')
+                        WHERE borrower_id = :b AND status IN ('OFFERED', 'APPLIED', 'IN_REVIEW', 'ACTIVE', 'DEFAULTED')
                         """)
                 .param("b", borrowerId).query(Long.class).single() > 0;
     }

@@ -29,13 +29,15 @@ class BorrowerLoanController {
     private final RepaymentService repayments;
     private final ProductCatalog products;
     private final WalletApi wallets;
+    private final LoanOfferService offers;
 
     BorrowerLoanController(LendingQueries queries, RepaymentService repayments, ProductCatalog products,
-                           WalletApi wallets) {
+                           WalletApi wallets, LoanOfferService offers) {
         this.queries = queries;
         this.repayments = repayments;
         this.products = products;
         this.wallets = wallets;
+        this.offers = offers;
     }
 
     @GetMapping("/api/loans/products")
@@ -52,6 +54,21 @@ class BorrowerLoanController {
     LoanDetail get(@PathVariable UUID id) {
         return queries.loan(id, CurrentUser.id())
                 .orElseThrow(() -> new DomainException.NotFound("loan_not_found", "No loan " + id));
+    }
+
+    @GetMapping("/api/loans/{id}/offer")
+    LoanOfferService.Offer offer(@PathVariable UUID id) {
+        return offers.offer(id, CurrentUser.id());
+    }
+
+    @PostMapping("/api/loans/{id}/offer/accept")
+    LoanOfferService.Response accept(@PathVariable UUID id) {
+        return offers.respond(id, CurrentUser.id(), true);
+    }
+
+    @PostMapping("/api/loans/{id}/offer/decline")
+    LoanOfferService.Response decline(@PathVariable UUID id) {
+        return offers.respond(id, CurrentUser.id(), false);
     }
 
     /** Repay from the wallet (top it up via M-Pesa deposit first). */
