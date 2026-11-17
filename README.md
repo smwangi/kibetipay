@@ -49,3 +49,10 @@ com.samwan.kibetipay
 ├── lending     products, scorecard, approval saga, repayments, commissions, EOD job, PAR
 └── search      OpenSearch read model: event projections, full-text search + facets (dev profile only)
 ```
+
+Loan events also create a durable in-app notification inbox. Borrowers can list their latest 100
+messages at `GET /api/notifications` and mark a message read with
+`POST /api/notifications/{id}/read`. Agents can inspect their latest 200 commission credits,
+including the originating loan and repayment, at `GET /api/agents/me/commissions`.
+These notifications are in-app records; SMS delivery and external payout reconciliation are not
+implemented. Commissions are credited directly to agent wallets and are not external payouts.

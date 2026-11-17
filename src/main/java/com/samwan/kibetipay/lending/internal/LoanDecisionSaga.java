@@ -121,35 +121,31 @@ class LoanDecisionSaga {
 
     /** Also called from the admin review queue. */
     void disburse(UUID loanId) {
-        var loan = loans.findById(loanId).orElseThrow();
-        if (loan.status() == Loan.Status.ACTIVE) {
-            return;
-        }
-        WalletApi.PostingReceipt receipt;
         try {
-            receipt = wallets.postJournal(new JournalRequest("loan:disburse:" + loanId, LendingJournalKinds.LOAN_DISBURSEMENT, List.of(
-                    Leg.debit(SystemAccounts.LENDING_POOL, loan.principal()),
-                    Leg.credit(loan.borrowerId(), loan.principal()))));
+            tx.executeWithoutResult(s -> {
+                var l = loans.findForUpdate(loanId).orElseThrow();
+                if (l.status() == Loan.Status.ACTIVE) return;
+                if (l.status() != Loan.Status.APPLIED && l.status() != Loan.Status.IN_REVIEW) {
+                    throw new DomainException.Conflict("invalid_loan_state", "Loan " + loanId + " is " + l.status());
+                }
+                var receipt = wallets.postJournal(new JournalRequest("loan:disburse:" + loanId,
+                        LendingJournalKinds.LOAN_DISBURSEMENT, List.of(
+                        Leg.debit(SystemAccounts.LENDING_POOL, l.principal()),
+                        Leg.credit(l.borrowerId(), l.principal()))));
+                l.activate(receipt.journalId(), products.require(l.productCode()), LocalDate.now(clock));
+                events.publishEvent(new LoanDisbursed(l.id(), l.borrowerId(), l.agentId(), l.principal().minor(),
+                        l.currency(), Instant.now(clock)));
+            });
         } catch (WalletApi.InsufficientFundsException poolEmpty) {
             decline(loanId, "lending_pool_exhausted");
             return;
         }
-        var product = products.require(loan.productCode());
-        tx.executeWithoutResult(s -> {
-            var l = loans.findById(loanId).orElseThrow();
-            if (l.status() == Loan.Status.ACTIVE) {
-                return;
-            }
-            l.activate(receipt.journalId(), product, LocalDate.now(clock));
-            events.publishEvent(new LoanDisbursed(l.id(), l.borrowerId(), l.agentId(), l.principal().minor(),
-                    l.currency(), Instant.now(clock)));
-        });
         metrics.counter("kibetipay.loans", "outcome", "disbursed").increment();
     }
 
     void decline(UUID loanId, String reasons) {
         tx.executeWithoutResult(s -> {
-            var l = loans.findById(loanId).orElseThrow();
+            var l = loans.findForUpdate(loanId).orElseThrow();
             if (l.status() == Loan.Status.DECLINED) {
                 return;
             }

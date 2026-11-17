@@ -75,6 +75,21 @@ class LoanQueryService implements LendingQueries {
     record Portfolio(int activeLoans, String outstandingPrincipal, String par30Principal, double par30Ratio,
                      int defaultedLoans, String collected, String commissionEarned) {}
 
+    record Commission(UUID id, UUID loanId, UUID repaymentId, int level, String amount, String currency,
+                      java.time.Instant earnedAt) {}
+
+    List<Commission> commissions(String userId) {
+        return jdbc.sql("""
+                SELECT c.id, r.loan_id, c.repayment_id, c.level, c.amount_minor, l.currency, c.created_at
+                FROM lending_commission c JOIN lending_repayment r ON r.id = c.repayment_id
+                JOIN lending_loan l ON l.id = r.loan_id
+                WHERE c.agent_user_id = :user ORDER BY c.created_at DESC LIMIT 200
+                """).param("user", userId).query((rs, n) -> new Commission(rs.getObject("id", UUID.class),
+                rs.getObject("loan_id", UUID.class), rs.getObject("repayment_id", UUID.class), rs.getInt("level"),
+                fmt(rs.getLong("amount_minor"), rs.getString("currency")), rs.getString("currency"),
+                rs.getTimestamp("created_at").toInstant())).list();
+    }
+
     /** @param agentIds agents to include, or {@code null} for the whole book */
     Portfolio portfolio(Collection<UUID> agentIds, String commissionForUser) {
         LocalDate cutoff = LocalDate.now(clock).minusDays(30);

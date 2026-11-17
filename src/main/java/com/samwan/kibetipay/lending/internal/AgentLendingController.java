@@ -12,6 +12,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -61,6 +62,13 @@ class AgentLendingController {
     LoanQueryService.Portfolio portfolio() {
         var me = agents.requireAgent(CurrentUser.id());
         return queries.portfolio(agents.subtree(me.id()), me.userId());
+    }
+
+    /** Commissions already credited to the agent's wallet, linked to the underlying collection. */
+    @GetMapping("/api/agents/me/commissions")
+    List<LoanQueryService.Commission> commissions() {
+        var me = agents.requireAgent(CurrentUser.id());
+        return queries.commissions(me.userId());
     }
 
     record OriginateRequest(
