@@ -46,13 +46,6 @@ class PlatformCurrencyInitializer implements ApplicationRunner {
         if (!recorded.equals(currency)) {
             throw new IllegalStateException("The configured currency differs from the established platform currency " + recorded);
         }
-        long incompatible = jdbc.sql("""
-                SELECT (SELECT count(*) FROM wallet_account WHERE type = 'USER' AND currency <> :currency)
-                     + (SELECT count(*) FROM wallet_ledger_entry WHERE currency <> :currency)
-                """).param("currency", currency).query(Long.class).single();
-        if (incompatible > 0) {
-            throw new IllegalStateException("Existing wallet or ledger data uses a different currency; currency conversion is not supported");
-        }
         for (var account : List.of(
                 new SystemAccount(SystemAccounts.FLOAT, true),
                 new SystemAccount(SystemAccounts.LENDING_POOL, false),
