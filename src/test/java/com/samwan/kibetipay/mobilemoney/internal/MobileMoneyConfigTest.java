@@ -54,6 +54,12 @@ class MobileMoneyConfigTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void masksShortestAcceptedInternationalNumbers() {
+        assertThat(SimulatedMobileMoneyGateway.mask("12345678")).isEqualTo("12***678");
+        assertThat(SimulatedMobileMoneyGateway.mask("123456789")).isEqualTo("12***789");
+    }
+
     static class FakeDaraja implements MobileMoneyGateway {
         @Override
         public String provider() {

@@ -49,6 +49,6 @@ class SimulatedMobileMoneyGateway implements MobileMoneyGateway {
 
     /** Phone numbers are personal data: never log them in full. */
     static String mask(String msisdn) {
-        return msisdn.substring(0, 6) + "***" + msisdn.substring(msisdn.length() - 3);
+        return msisdn.substring(0, 2) + "***" + msisdn.substring(msisdn.length() - 3);
     }
 }
