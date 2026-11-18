@@ -1,5 +1,6 @@
 package com.samwan.kibetipay.mobilemoney.internal;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import com.samwan.kibetipay.mobilemoney.MobileMoneyGateway;
 import com.samwan.kibetipay.mobilemoney.internal.CollectionState.Status;
 import com.samwan.kibetipay.shared.error.DomainException;
@@ -37,7 +38,7 @@ class CollectionService {
     }
 
     Result initiate(String owner, String key, String msisdn, Money amount) {
-        var request = new MobileMoneyGateway.CollectionRequest(UUID.randomUUID().toString(), msisdn, amount,
+        var request = new MobileMoneyGateway.CollectionRequest(Ids.newId().toString(), msisdn, amount,
                 "wallet", "Wallet deposit");
         if (!wallets.exists(owner, amount.currencyCode())) {
             throw new WalletApi.WalletNotFoundException(owner, amount.currencyCode());
@@ -68,7 +69,7 @@ class CollectionService {
                     || response.providerRequestId().isBlank() || response.status() == null) {
                 markUnknown(id);
             } else {
-                String status = response.status() == MobileMoneyGateway.Status.ACCEPTED ? "PENDING" : "REJECTED";
+                String status = (response.status() == MobileMoneyGateway.Status.ACCEPTED ? Status.PENDING : Status.REJECTED).name();
                 tx.executeWithoutResult(s -> jdbc.sql("""
                         UPDATE mobilemoney_collection SET status = :status, provider_request_id = :providerId, updated_at = :now
                         WHERE id = :id AND status = 'SUBMITTING'
@@ -107,7 +108,7 @@ class CollectionService {
             jdbc.sql("""
                     UPDATE mobilemoney_collection SET status = :status, provider_receipt = :receipt,
                       journal_id = :journal, updated_at = :now WHERE id = :id
-                    """).param("status", success ? "COMPLETED" : "FAILED").param("receipt", success ? receipt : null)
+                    """).param("status", (success ? Status.COMPLETED : Status.FAILED).name()).param("receipt", success ? receipt : null)
                     .param("journal", journalId).param("now", Timestamp.from(Instant.now(clock))).param("id", id).update();
             return result(byId(id, null, false), false);
         });

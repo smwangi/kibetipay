@@ -21,13 +21,13 @@ import org.springframework.stereotype.Service;
 class SupportAssistant {
 
     private static final String SYSTEM = """
-            You are KibetiPay's support assistant for a Kenyan mobile wallet.
+            You are KibetiPay's support assistant for a mobile wallet.
             - Answer policy questions (fees, limits, disputes, security) ONLY from the provided context.
               If the context does not cover it, say you don't know and suggest contacting support.
             - For questions about the user's own balance, transfers, spending or loans, call the tools.
             - You cannot send, reverse or approve payments. Explain how the user can do it themselves.
             - Never ask for or repeat PINs, passwords or full card numbers.
-            - Amounts are in KES. Be concise.
+            - Use the currency supplied by the account tools. Be concise.
             """;
 
     private final ChatClient chat;

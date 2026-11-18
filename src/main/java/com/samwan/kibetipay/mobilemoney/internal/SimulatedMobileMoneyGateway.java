@@ -18,11 +18,12 @@ import org.slf4j.LoggerFactory;
  */
 class SimulatedMobileMoneyGateway implements MobileMoneyGateway {
 
+    static final String PROVIDER = "simulator";
     private static final Logger log = LoggerFactory.getLogger(SimulatedMobileMoneyGateway.class);
 
     @Override
     public String provider() {
-        return "simulator";
+        return PROVIDER;
     }
 
     @Override
@@ -48,6 +49,6 @@ class SimulatedMobileMoneyGateway implements MobileMoneyGateway {
 
     /** Phone numbers are personal data: never log them in full. */
     static String mask(String msisdn) {
-        return msisdn.substring(0, 6) + "***" + msisdn.substring(msisdn.length() - 3);
+        return msisdn.substring(0, 2) + "***" + msisdn.substring(msisdn.length() - 3);
     }
 }

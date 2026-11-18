@@ -28,7 +28,7 @@ class SimulatedCollectionController {
 
     @PostMapping("/api/admin/mobile-money/simulator/collections/{id}/result")
     CollectionService.Result result(@PathVariable UUID id, @Valid @RequestBody Callback callback) {
-        if (!"simulator".equals(gateway.provider())) {
+        if (!SimulatedMobileMoneyGateway.PROVIDER.equals(gateway.provider())) {
             throw new DomainException.Conflict("simulator_unavailable", "Simulated results require the simulator gateway");
         }
         return collections.complete(id, callback.providerRequestId(), callback.amountMinor(), callback.currency(),

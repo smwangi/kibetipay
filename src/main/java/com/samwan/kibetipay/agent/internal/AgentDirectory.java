@@ -1,5 +1,6 @@
 package com.samwan.kibetipay.agent.internal;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import com.samwan.kibetipay.agent.AgentApi;
 import com.samwan.kibetipay.shared.error.DomainException;
 import com.samwan.kibetipay.shared.money.Money;
@@ -66,7 +67,7 @@ class AgentDirectory implements AgentApi {
         if (!wallets.exists(r.userId(), wallets.defaultCurrency())) {
             wallets.open(r.userId(), wallets.defaultCurrency());   // the agent's float wallet
         }
-        var id = UUID.randomUUID();
+        var id = Ids.newId();
         try {
             jdbc.sql("""
                             INSERT INTO agent (id, user_id, parent_id, code, display_name, region, depth, status,

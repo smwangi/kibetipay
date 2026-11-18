@@ -1,5 +1,6 @@
 package com.samwan.kibetipay.wallet.internal;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import com.samwan.kibetipay.shared.money.Money;
@@ -68,7 +69,7 @@ class WalletAccount {
 
     static WalletAccount openUser(String ownerId, String currency) {
         var w = new WalletAccount();
-        w.id = UUID.randomUUID();
+        w.id = Ids.newId();
         w.ownerId = ownerId;
         w.currency = currency;
         w.type = Type.USER;

@@ -2,6 +2,7 @@ package com.samwan.kibetipay.transfer.internal.web;
 
 import com.samwan.kibetipay.shared.security.CurrentUser;
 import com.samwan.kibetipay.shared.error.DomainException;
+import com.samwan.kibetipay.shared.id.Ids;
 import com.samwan.kibetipay.shared.money.Money;
 import com.samwan.kibetipay.transfer.TransferQueries;
 import com.samwan.kibetipay.transfer.TransferQueries.TransferView;
@@ -18,7 +19,9 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -57,13 +60,23 @@ class TransferController {
         var location = URI.create("/api/transfers/" + accepted.transferId());
         return ResponseEntity.accepted()
                 .location(location)
-                .body(Map.of("transferId", accepted.transferId(), "replayed", accepted.replayed()));
+                .body(Map.of("transferId", accepted.transferId(), "txnRef", accepted.txnRef(),
+                        "replayed", accepted.replayed()));
     }
 
     @GetMapping("/{id}")
     TransferView get(@PathVariable UUID id) {
         return queries.byId(id, CurrentUser.id())
                 .orElseThrow(() -> new DomainException.NotFound("transfer_not_found", "No transfer " + id));
+    }
+
+    /** Support/receipt lookup, e.g. GET /api/transfers/ref/KP7H3QX9M2AB (case-insensitive). */
+    @GetMapping("/ref/{txnRef}")
+    TransferView getByRef(@PathVariable String txnRef) {
+        var ref = txnRef.trim().toUpperCase(Locale.ROOT);
+        return Optional.of(ref).filter(Ids::isTxnRef)
+                .flatMap(r -> queries.byTxnRef(r, CurrentUser.id()))
+                .orElseThrow(() -> new DomainException.NotFound("transfer_not_found", "No transfer " + txnRef));
     }
 
     @GetMapping

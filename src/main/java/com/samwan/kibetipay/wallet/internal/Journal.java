@@ -1,15 +1,20 @@
 package com.samwan.kibetipay.wallet.internal;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PostPersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Persistable;
 
 /**
  * One business event in the ledger (a deposit, a transfer). Owns its entries and refuses to
@@ -17,7 +22,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "wallet_journal")
-class Journal {
+class Journal implements Persistable<UUID> {
 
     @Id
     private UUID id;
@@ -34,15 +39,33 @@ class Journal {
     @OneToMany(mappedBy = "journal", cascade = CascadeType.PERSIST)
     private List<LedgerEntry> entries = new ArrayList<>();
 
+    /**
+     * The id is assigned in the constructor, so Spring Data would otherwise treat every journal as
+     * existing and call merge(), which does not cascade to the immutable entries and fails looking
+     * them up. Tracking newness explicitly makes save() call persist(), cascading the entries.
+     */
+    @Transient
+    private boolean isNew = true;
+
     protected Journal() {
     }
 
     Journal(String reference, String kind) {
-        this.id = UUID.randomUUID();
+        this.id = Ids.newId();
         this.reference = reference;
         this.kind = kind;
         this.createdAt = Instant.now();
     }
+
+    @Override
+    public UUID getId() { return id; }
+
+    @Override
+    public boolean isNew() { return isNew; }
+
+    @PostPersist
+    @PostLoad
+    void markNotNew() { isNew = false; }
 
     void debit(WalletAccount wallet, com.samwan.kibetipay.shared.money.Money amount) {
         long after = wallet.debit(amount);

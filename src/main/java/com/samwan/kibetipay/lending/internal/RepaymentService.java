@@ -1,5 +1,6 @@
 package com.samwan.kibetipay.lending.internal;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import com.samwan.kibetipay.lending.LendingJournalKinds;
 import com.samwan.kibetipay.agent.AgentApi;
 import com.samwan.kibetipay.lending.LendingEvents.LoanRepaid;
@@ -92,7 +93,7 @@ class RepaymentService {
                 Leg.credit(SystemAccounts.PENALTY_INCOME, Money.of(a.penalty(), cur)))));
 
         boolean closed = loan.applyRepayment(a);
-        var repaymentId = UUID.randomUUID();
+        var repaymentId = Ids.newId();
         var now = Instant.now(clock);
         jdbc.sql("""
                         INSERT INTO lending_repayment (id, loan_id, reference, payer_id, channel, amount_minor,
@@ -138,7 +139,7 @@ class RepaymentService {
                             INSERT INTO lending_commission (id, repayment_id, agent_id, agent_user_id, level, amount_minor, created_at)
                             VALUES (:id, :rep, :agent, :user, :level, :amount, :at)
                             """)
-                    .param("id", UUID.randomUUID()).param("rep", repaymentId).param("agent", agent.id())
+                    .param("id", Ids.newId()).param("rep", repaymentId).param("agent", agent.id())
                     .param("user", agent.userId()).param("level", level).param("amount", share)
                     .param("at", Timestamp.from(now))
                     .update();

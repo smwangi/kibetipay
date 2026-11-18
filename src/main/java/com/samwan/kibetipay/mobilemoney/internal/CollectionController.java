@@ -1,6 +1,7 @@
 package com.samwan.kibetipay.mobilemoney.internal;
 
 import com.samwan.kibetipay.shared.money.Money;
+import com.samwan.kibetipay.mobilemoney.MobileMoneyGateway.Msisdn;
 import com.samwan.kibetipay.shared.security.CurrentUser;
 import com.samwan.kibetipay.wallet.WalletApi;
 import jakarta.validation.Valid;
@@ -25,7 +26,7 @@ class CollectionController {
     private final CollectionService collections;
     private final WalletApi wallets;
     CollectionController(CollectionService collections, WalletApi wallets) { this.collections = collections; this.wallets = wallets; }
-    record Request(@NotBlank @Pattern(regexp = "254[17]\\d{8}") String msisdn,
+    record Request(@NotBlank @Pattern(regexp = Msisdn.INTERNATIONAL_PATTERN) String msisdn,
                    @NotNull @DecimalMin("1.00") @Digits(integer = 9, fraction = 2) BigDecimal amount) {}
 
     @PostMapping("/api/mobile-money/collections")

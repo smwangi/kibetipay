@@ -1,5 +1,6 @@
 package com.samwan.kibetipay.wallet.internal;
 
+import com.samwan.kibetipay.shared.id.Ids;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import com.samwan.kibetipay.shared.money.Money;
@@ -58,7 +59,7 @@ class LedgerEntry {
     }
 
     LedgerEntry(Journal journal, UUID walletId, Direction direction, Money amount, long balanceAfter) {
-        this.id = UUID.randomUUID();
+        this.id = Ids.newId();
         this.journal = journal;
         this.walletId = walletId;
         this.direction = direction;
