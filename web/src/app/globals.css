@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+/* KibetiPay design tokens. Components use the Tailwind names below (bg-surface, text-muted, ...). */
+:root {
+  --bg: #f4f6f3;
+  --surface: #ffffff;
+  --surface-2: #eef2ee;
+  --border: #dde3dc;
+  --text: #15201b;
+  --muted: #5c6b63;
+  --brand: #0d6e57;
+  --brand-strong: #0a5946;
+  --brand-soft: #dcefe8;
+  --on-brand: #ffffff;
+  --hero: #0d6e57;
+  --on-hero: #ffffff;
+  --accent: #e8a33d;
+  --success: #17804f;
+  --success-soft: #def3e7;
+  --warning: #9a6200;
+  --warning-soft: #fbefd6;
+  --danger: #b4282e;
+  --danger-soft: #fbe3e3;
+  --info: #2457a6;
+  --info-soft: #e1eafa;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1311;
+    --surface: #151d1a;
+    --surface-2: #1c2622;
+    --border: #2a3631;
+    --text: #e8eeea;
+    --muted: #93a39b;
+    --brand: #3fb895;
+    --brand-strong: #5ccaa8;
+    --brand-soft: #173a30;
+    --on-brand: #06231b;
+    --hero: #134a3d;
+    --on-hero: #e8f3ee;
+    --accent: #f0b65e;
+    --success: #4cc78a;
+    --success-soft: #16352a;
+    --warning: #f0b65e;
+    --warning-soft: #3a2d14;
+    --danger: #f07a7f;
+    --danger-soft: #3d1c1e;
+    --info: #85aef0;
+    --info-soft: #1b2a45;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-on-brand: var(--on-brand);
+  --color-hero: var(--hero);
+  --color-on-hero: var(--on-hero);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

@@ -1,0 +1,60 @@
+# KibetiPay web
+
+Customer web app for KibetiPay, built with Next.js 16 (App Router), React 19, TypeScript and Tailwind CSS 4. It talks to the Spring Boot API in the parent directory.
+
+## What customers can do
+
+| Page | Backend endpoints |
+| --- | --- |
+| Sign in / out | `/api/session` (this app), checked against the backend |
+| Home: balance, open wallet, recent transfers, loan and notification prompts | `GET/POST /api/wallets`, `GET /api/transfers`, `GET /api/loans`, `GET /api/notifications` |
+| Send money: follows the transfer through the risk check | `POST /api/transfers`, `GET /api/transfers/{id}` |
+| Top up: mobile-money prompt, plus a simulated deposit in development | `POST/GET /api/mobile-money/collections`, `POST /api/wallets/me/deposits` |
+| Activity: transfers, ledger statement, lookup by `KP…` reference | `GET /api/transfers`, `GET /api/wallets/me/statement`, `GET /api/transfers/ref/{ref}` |
+| Loans: review and accept/decline offers, schedule, repay from wallet | `/api/loans/**` |
+| Insights: monthly spending by category, AI summary, unusual-activity alerts | `GET /api/insights/me[/narrative]`, `GET /api/anomalies/me` |
+| Notifications | `GET /api/notifications`, `POST /api/notifications/{id}/read` |
+| Help: support assistant chat | `POST /api/assistant/ask` |
+
+Agent and admin screens are not part of this app yet.
+
+## Running locally
+
+1. Start the backend with the `dev` profile, which seeds users and money: from the repo root, run `mvn spring-boot:run -Dspring-boot.run.profiles=dev`, or use IntelliJ.
+2. In this directory:
+
+   ```bash
+   npm install
+   npm run dev
+   ```
+
+3. Open the `Local:` URL it prints. It is normally http://localhost:3000; if that port is busy, Next.js uses the next free one and says so.
+4. Sign in with a customer dev user from `src/main/resources/application-dev.yml` (`alice` or `bob`).
+
+The `Network:` URL (your machine's LAN address, e.g. for testing on a phone) also works: [next.config.ts](next.config.ts) allows this machine's own addresses. Add any other hostnames, such as a tunnel, to `KIBETIPAY_DEV_ORIGINS` (comma-separated).
+
+Configuration lives in `.env.local` (see [.env.example](.env.example)):
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `KIBETIPAY_API_URL` | `http://localhost:8080` | Backend base URL. Used only on the server. |
+| `SESSION_SECRET` | dev-only fallback | Encrypts the session cookie. **Required** for `npm run start` and any deployment. |
+| `KIBETIPAY_DEV_ORIGINS` | none | Extra hostnames allowed to open the dev server (`next dev` only). |
+
+`npm run build && npm run start` runs the production build; `npm run lint` checks the code.
+
+## How it works
+
+- **Backend for frontend.** The browser only talks to this app. [`/api/kp/[...path]`](src/app/api/kp/[...path]/route.ts) forwards requests to `<backend>/api/...` and adds the user's credentials. This avoids CORS. Admin paths are refused by the proxy as well as by the backend's role checks.
+- **Sign-in without JavaScript.** The login form is a real `POST` to `/api/session`. If the page's script hasn't loaded, the browser submits the form itself, and the route answers with a redirect. Credentials never appear in a URL.
+- **Sessions.** The backend uses HTTP Basic. On sign-in, [`/api/session`](src/app/api/session/route.ts) checks the credentials against the backend, then stores them in an AES-256-GCM sealed, `httpOnly`, `SameSite=Strict` cookie that expires after 8 hours ([session.ts](src/lib/server/session.ts)). Browser JavaScript never sees the password. [`proxy.ts`](src/proxy.ts) sends visitors without a session cookie to `/login`; every API call still verifies the sealed cookie.
+- **Idempotency.** Every money-moving form creates an `Idempotency-Key` once, reuses it if the user retries after an error, and only makes a new one after success. A double click or a flaky network therefore can't send money twice.
+- **Data.** Pages are client components that use [SWR](https://swr.vercel.app) hooks ([hooks.ts](src/lib/hooks.ts)) to cache and refresh data. The transfer and mobile-money screens poll until a final status arrives. After any change, the related balances and lists are refreshed.
+- **Design.** Colour tokens in [globals.css](src/app/globals.css) define light and dark themes, and components use them through Tailwind names (`bg-surface`, `text-muted`, …). The layout is mobile-first, with bottom navigation on phones and a sidebar on desktop.
+
+## Known gaps
+
+- The backend's in-memory dev users are the only accounts; there is no sign-up, password change or two-factor authentication yet.
+- The mobile-money top-up stays `PENDING` until a provider result arrives. Locally, an admin can complete it through the simulator endpoint (see `api.http`).
+- The AI summary and support assistant need a configured chat model on the backend. Without one they show a friendly error.
+- Amounts typed by customers assume two decimal places, matching the backend's current validation.
