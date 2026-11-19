@@ -28,6 +28,17 @@ The configuration includes Ollama model settings; installing and configuring an 
 starter is necessary before treating those settings as an active Ollama integration. Ensure the
 selected embedding model is compatible with the configured pgvector dimensions.
 
+### Web app
+A customer web app (Next.js, React, TypeScript) lives in [web/](web/README.md). With the backend
+running in the `dev` profile:
+```bash
+cd web
+npm install
+npm run dev
+```
+Open the `Local:` URL it prints (normally http://localhost:3000; Next.js picks the next free port
+if 3000 is busy) and sign in with one of the dev users listed in `application-dev.yml`.
+
 ## Try it
 Dev users: borrowers `alice / alice-dev`, `bob / bob-dev`; agents `wanjiru / wanjiru-dev` (top agent) and
 `otieno / otieno-dev` (her sub-agent); `admin / admin-dev`. The dev profile seeds wallets, the agent network and
