@@ -52,7 +52,8 @@ class PlatformCurrencyInitializer implements ApplicationRunner {
                 new SystemAccount(SystemAccounts.INTEREST_INCOME, false),
                 new SystemAccount(SystemAccounts.FEE_INCOME, false),
                 new SystemAccount(SystemAccounts.PENALTY_INCOME, false),
-                new SystemAccount(SystemAccounts.COMMISSION_EXPENSE, true))) {
+                new SystemAccount(SystemAccounts.COMMISSION_EXPENSE, true),
+                new SystemAccount(SystemAccounts.SUSPENSE, false))) {
             jdbc.sql("""
                     INSERT INTO wallet_account (id, owner_id, currency, type, status, balance_minor, allow_negative, version, created_at)
                     VALUES (:id, :owner, :currency, 'SYSTEM', 'ACTIVE', 0, :negative, 0, now())

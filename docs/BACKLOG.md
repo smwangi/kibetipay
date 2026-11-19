@@ -91,6 +91,11 @@ no report or search facet silently combines unlike amounts.
   reconciliation and suspense handling. Authenticate real provider callbacks before processing.
 - Reserve source funds before external payout; capture only on confirmed success, release only on
   confirmed failure, and retain the reservation for an unknown outcome until it is resolved.
+- Extend suspense. Unattributed inbound collections can already be held in `system:suspense` and
+  allocated to a customer wallet (admin-only, single currency). Still needed: per-currency
+  suspense once multi-currency is enabled, refunds of unidentified money to the payer, suspense
+  for amount differences on matched payments, write-off and unclaimed-funds policy, and ageing
+  alerts for old open items.
 
 **Acceptance:** unsupported provider combinations are rejected without a ledger posting or
 provider request; retries and duplicate callbacks are safe; timeout and unknown outcomes cannot

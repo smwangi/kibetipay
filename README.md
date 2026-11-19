@@ -83,9 +83,15 @@ Administrators can import expected payments and provider transaction evidence wi
 `POST /api/admin/mobile-money/expected-payments` and `POST /api/admin/mobile-money/provider-transactions`.
 `GET /api/admin/mobile-money/reconciliation` compares the latest 500 rows and flags missing,
 unmatched, duplicate-reference and mismatched evidence. Amounts are in minor units. This is a
-manual evidence comparison: it does not query a provider, verify imported statements, post to the
-ledger, or resolve suspense items. Unique provider references prevent the same statement line from
-being imported twice.
+manual evidence comparison: it does not query a provider, verify imported statements, or post to
+the ledger. Unique provider references prevent the same statement line from being imported twice.
+
+An unmatched inbound collection (money received with no matching expected payment) can be booked
+into the `system:suspense` account with
+`POST /api/admin/mobile-money/provider-transactions/{id}/suspense`, listed with
+`GET /api/admin/mobile-money/suspense`, and credited to the customer once identified with
+`POST /api/admin/mobile-money/suspense/{id}/allocation`. Both steps post balanced, idempotent
+journals; see [mobile money](src/main/java/com/samwan/kibetipay/mobilemoney/README.md#suspense).
 
 For example, an administrator can import an expected KES 100 collection and the corresponding
 provider statement line (the reference values are examples):
