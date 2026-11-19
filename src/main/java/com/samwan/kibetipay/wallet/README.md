@@ -13,11 +13,11 @@ The application currently operates a single currency per deployment; it does not
 | `POST /api/wallets/me/deposits` | Credit a wallet using a required `Idempotency-Key`. |
 | `GET /api/wallets/me/statement` | List the caller's ledger entries. |
 
-The deposit endpoint directly posts a journal; it is a development/simulation flow, not evidence that M-Pesa collected funds. `WalletApi.post` handles two-account transfers; `postJournal` accepts balanced multi-leg postings. System account identifiers are defined in `WalletApi.SystemAccounts`.
+The deposit endpoint directly posts a journal; it is a development/simulation flow, not evidence that M-Pesa collected funds. `WalletApi.post` handles two-account transfers; `postJournal` accepts balanced multi-leg postings. System account identifiers are defined in `WalletApi.SystemAccounts`: float, lending pool, interest/fee/penalty income, commission expense and suspense. `system:suspense` holds received money that is not yet attributed to a customer; the [mobile money module](../mobilemoney/README.md#suspense) posts to it.
 
 ## Invariants and storage
 
-`wallet_journal.reference` is unique. An identical replay returns the original posting receipt; a reference reused with different legs is rejected. Each journal must balance, and entries are append-only. Accounts are locked in deterministic order when posting, and account balances are updated in the same transaction as entries. User accounts cannot become negative; the database has a check as a final safeguard. `wallet_account`, `wallet_journal` and `wallet_ledger_entry` are created by `V1__core_schema.sql`; lending system accounts are added in V3.
+`wallet_journal.reference` is unique. An identical replay returns the original posting receipt; a reference reused with different legs is rejected. Each journal must balance, and entries are append-only. Accounts are locked in deterministic order when posting, and account balances are updated in the same transaction as entries. User accounts cannot become negative; the database has a check as a final safeguard. `wallet_account`, `wallet_journal` and `wallet_ledger_entry` are created by `V1__core_schema.sql`; lending system accounts are added in V3. Since V8, `PlatformCurrencyInitializer` creates any missing system accounts, including `system:suspense`, for the operating currency at startup.
 
 For a basic ledger integrity check, the sum of all credits minus debits across `wallet_ledger_entry` should be zero. This checks internal balance only; it does not reconcile with bank or mobile-money statements. The ledger has reversal-related building blocks but no complete external dispute or reversal workflow.
 

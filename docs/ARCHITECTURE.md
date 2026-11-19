@@ -56,7 +56,7 @@ No cycles; `ModularityTests` fails the build if that ever changes.
 | insights | `insight_transaction` | `InsightsApi` | Projection + batch LLM categorisation |
 | assistant | `vector_store` (Spring AI) | REST only | RAG + read-only tools + chat memory |
 | agent | `agent` | `AgentApi` | Agent → sub-agent tree, float wallets, recursive CTE lineage/subtree |
-| mobilemoney | `mobilemoney_collection`, `mobilemoney_expected_payment`, `mobilemoney_provider_transaction` | `MobileMoneyGateway` | Simulated wallet collection lifecycle and manual evidence comparison; no real provider integration |
+| mobilemoney | `mobilemoney_collection`, `mobilemoney_expected_payment`, `mobilemoney_provider_transaction`, `mobilemoney_suspense_item` | `MobileMoneyGateway` | Simulated wallet collection lifecycle, manual evidence comparison and suspense for unattributed collections; no real provider integration |
 | lending | `lending_*` | `LendingQueries`, `LendingEvents` | Products, credit scorecard, approval saga, schedules, repayment waterfall, commissions, end-of-day job, PAR |
 | notification | `notification_message` | REST only | Event-driven in-app lending inbox; no SMS delivery |
 | search | OpenSearch indices `kibetipay-transfers`, `kibetipay-loans` (aliases → `-v1`) | REST only | Read model fed by events. Opt-in (`app.search.enabled`); see §9 |
@@ -104,6 +104,15 @@ exists and returns the original receipt, and the transfer is marked COMPLETED. N
   `wallet_journal.reference` unique.
 - Deposits debit a `SYSTEM` float account, so total money in the system always sums to zero.
   Reconciliation query: `SELECT sum(CASE direction WHEN 'CREDIT' THEN amount_minor ELSE -amount_minor END) FROM wallet_ledger_entry` must be 0.
+- Money that reaches the provider account but cannot be attributed to a customer is credited to a
+  `system:suspense` account (from the float), never guessed onto a wallet. It is cleared to the right
+  wallet once identified, so its balance equals the open suspense items and should trend to zero.
+
+| Money event | Journal legs |
+|---|---|
+| Deposit / completed collection | float → customer wallet |
+| Unattributed collection | float → suspense |
+| Suspense allocation | suspense → customer wallet |
 
 ## 5. Lending ecosystem
 

@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Admin-only evidence import and exception report; no provider or ledger side effects. */
+/** Admin-only evidence import and exception report; no provider or ledger side effects (see SuspenseController). */
 @RestController
 class ReconciliationController {
     private final JdbcClient jdbc;
@@ -38,7 +38,7 @@ class ReconciliationController {
     }
     record Imported(UUID id) {}
     record Comparison(UUID expectedId, String provider, String reference, UUID transactionId,
-                      String providerReference, String result) {}
+                      String providerReference, String result, UUID suspenseItemId, String suspenseStatus) {}
 
     @PostMapping("/api/admin/mobile-money/expected-payments")
     Imported expected(@Valid @RequestBody Expected e) {
@@ -79,9 +79,11 @@ class ReconciliationController {
                        coalesce(e.reference, p.expected_reference) AS reference, p.id AS transaction_id, p.provider_reference,
                        e.direction AS expected_direction, e.amount_minor AS expected_amount, e.currency AS expected_currency,
                        p.direction AS actual_direction, p.amount_minor AS actual_amount, p.currency AS actual_currency,
-                       count(p.id) OVER (PARTITION BY e.id) AS matches
+                       count(p.id) OVER (PARTITION BY e.id) AS matches,
+                       s.id AS suspense_id, s.status AS suspense_status
                 FROM mobilemoney_expected_payment e FULL JOIN mobilemoney_provider_transaction p
                     ON e.provider = p.provider AND e.reference = p.expected_reference
+                LEFT JOIN mobilemoney_suspense_item s ON s.provider_transaction_id = p.id
                 ORDER BY coalesce(p.imported_at, e.created_at) DESC LIMIT 500
                 """).query((rs, n) -> {
                     UUID expectedId = rs.getObject("expected_id", UUID.class);
@@ -92,7 +94,8 @@ class ReconciliationController {
                                     rs.getString("expected_currency"), rs.getString("actual_direction"),
                                     rs.getLong("actual_amount"), rs.getString("actual_currency")).name();
                     return new Comparison(expectedId, rs.getString("provider"), rs.getString("reference"),
-                            transactionId, rs.getString("provider_reference"), result);
+                            transactionId, rs.getString("provider_reference"), result,
+                            rs.getObject("suspense_id", UUID.class), rs.getString("suspense_status"));
                 }).list();
     }
 }

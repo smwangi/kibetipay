@@ -69,6 +69,11 @@ public interface WalletApi {
         public static final String FEE_INCOME = "system:fee-income";
         public static final String PENALTY_INCOME = "system:penalty-income";
         public static final String COMMISSION_EXPENSE = "system:commission-expense";
+        /**
+         * Money the platform has received but cannot yet attribute to a customer (e.g. a provider
+         * collection with no matching expected payment). Never negative; should trend to zero.
+         */
+        public static final String SUSPENSE = "system:suspense";
 
         private SystemAccounts() {
         }

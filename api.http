@@ -168,3 +168,34 @@ Authorization: Basic admin admin-dev
 GET {{base}}/api/admin/search/loans?borrower=alice
 Authorization: Basic admin admin-dev
 
+
+### ===================== Mobile money: suspense (admin) =====================
+### Import a provider statement line that names no expected payment (shows as UNMATCHED_PROVIDER)
+POST {{base}}/api/admin/mobile-money/provider-transactions
+Authorization: Basic admin admin-dev
+Content-Type: application/json
+
+{ "provider": "example", "providerReference": "receipt-unknown-1", "direction": "COLLECTION",
+  "amountMinor": 50000, "currency": "KES", "occurredAt": "2026-11-18T09:30:00Z" }
+
+> {% client.global.set("providerTransactionId", response.body.id); %}
+
+### Book it into suspense: Dr system:float, Cr system:suspense
+POST {{base}}/api/admin/mobile-money/provider-transactions/{{providerTransactionId}}/suspense
+Authorization: Basic admin admin-dev
+Content-Type: application/json
+
+{ "reason": "Statement line has no account reference" }
+
+> {% client.global.set("suspenseItemId", response.body.id); %}
+
+### Open suspense items, oldest first
+GET {{base}}/api/admin/mobile-money/suspense?status=OPEN
+Authorization: Basic admin admin-dev
+
+### Customer identified: Dr system:suspense, Cr alice's wallet
+POST {{base}}/api/admin/mobile-money/suspense/{{suspenseItemId}}/allocation
+Authorization: Basic admin admin-dev
+Content-Type: application/json
+
+{ "ownerId": "alice", "note": "Alice called support with receipt receipt-unknown-1" }
