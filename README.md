@@ -7,7 +7,7 @@ Remaining multi-currency and FX work is tracked in the [implementation backlog](
 
 ## Prerequisites
 - Java 25 (LTS), Maven 3.9+, and Docker for the local services and Testcontainers integration tests.
-- The current Maven configuration includes the Google GenAI starter and requires the relevant model credentials/configuration, including `GEMINI_API_KEY`. The compose file also starts Ollama, but the current Maven dependencies do not include the Ollama model starter.
+- The current Maven configuration includes the Google GenAI starter and requires the relevant model credentials/configuration, including `GEMINI_API_KEY`. The compose file also starts Ollama, but the current Maven dependencies do not include the Ollama model starter. No embedding model is included either, so the pgvector store is off by default (`AI_VECTOR_STORE=none`) and the assistant runs without policy retrieval; see [assistant](src/main/java/com/samwan/kibetipay/assistant/README.md). Compose publishes Postgres on host port 5433 so that it does not clash with a locally installed Postgres on 5432.
 
 ## Run
 ```bash

@@ -11,11 +11,18 @@ import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvi
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.ObjectProvider;
+import java.util.ArrayList;
+import java.util.List;
+import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.stereotype.Service;
 
 /**
  * Customer-support assistant = RAG (policies from pgvector) + tools (the user's own account data)
  * + conversation memory. The advisor chain runs in order: memory ─▶ retrieval ─▶ model ─▶ tools.
+ *
+ * <p>The vector store is optional ({@code spring.ai.vectorstore.type}). Without it there is no
+ * retrieval step: the system prompt then makes the model decline policy questions.
  */
 @Service
 class SupportAssistant {
@@ -36,24 +43,25 @@ class SupportAssistant {
     private final InsightsApi insights;
     private final LendingQueries loans;
 
-    SupportAssistant(ChatClient.Builder builder, VectorStore vectorStore, ChatMemory memory,
+    SupportAssistant(ChatClient.Builder builder, ObjectProvider<VectorStore> vectorStore, ChatMemory memory,
                      AssistantProperties props, WalletApi wallets, TransferQueries transfers, InsightsApi insights,
                      LendingQueries loans) {
         this.wallets = wallets;
         this.transfers = transfers;
         this.insights = insights;
         this.loans = loans;
+        List<Advisor> advisors = new ArrayList<>();
+        advisors.add(MessageChatMemoryAdvisor.builder(memory).build());
+        vectorStore.ifAvailable(store -> advisors.add(QuestionAnswerAdvisor.builder(store)
+                .searchRequest(SearchRequest.builder()
+                        .topK(props.topK())
+                        .similarityThreshold(props.similarityThreshold())
+                        .build())
+                .build()));
+        advisors.add(new SimpleLoggerAdvisor());
         this.chat = builder
                 .defaultSystem(SYSTEM)
-                .defaultAdvisors(
-                        MessageChatMemoryAdvisor.builder(memory).build(),
-                        QuestionAnswerAdvisor.builder(vectorStore)
-                                .searchRequest(SearchRequest.builder()
-                                        .topK(props.topK())
-                                        .similarityThreshold(props.similarityThreshold())
-                                        .build())
-                                .build(),
-                        new SimpleLoggerAdvisor())
+                .defaultAdvisors(advisors)
                 .build();
     }
 

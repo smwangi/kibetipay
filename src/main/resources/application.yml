@@ -8,7 +8,7 @@ spring:
     virtual:
       enabled: true            # Java 21 virtual threads for request + async work
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/kibetipay}
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/kibetipay}
     username: ${DB_USERNAME:kibetipay}
     password: ${DB_PASSWORD:}
   jpa:
@@ -42,6 +42,10 @@ spring:
       init:
         pull-model-strategy: when_missing
     vectorstore:
+      # Opt-in: the pgvector store needs an EmbeddingModel, and no embedding provider is on the
+      # classpath yet. With "none" the assistant answers without policy retrieval (RAG).
+      # Add an embedding starter, then set AI_VECTOR_STORE=pgvector.
+      type: ${AI_VECTOR_STORE:none}
       pgvector:
         initialize-schema: true
         dimensions: 768        # nomic-embed-text

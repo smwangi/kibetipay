@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.io.Resource;
@@ -24,16 +25,17 @@ import org.springframework.stereotype.Component;
  * <p>Re-runnable: each document is tagged with its source name and a content hash. On every run
  * the old chunks for that source are deleted and the new ones inserted, so editing a policy file
  * and restarting refreshes the index without duplicates. Phase 6 moves this into a scheduled job.
+ * Without a configured vector store, ingestion is skipped and reports zero chunks.
  */
 @Component
 class KnowledgeIngestor {
 
     private static final Logger log = LoggerFactory.getLogger(KnowledgeIngestor.class);
 
-    private final VectorStore vectorStore;
+    private final ObjectProvider<VectorStore> vectorStore;
     private final AssistantProperties props;
 
-    KnowledgeIngestor(VectorStore vectorStore, AssistantProperties props) {
+    KnowledgeIngestor(ObjectProvider<VectorStore> vectorStore, AssistantProperties props) {
         this.vectorStore = vectorStore;
         this.props = props;
     }
@@ -46,6 +48,11 @@ class KnowledgeIngestor {
     }
 
     int ingest() {
+        VectorStore store = vectorStore.getIfAvailable();
+        if (store == null) {
+            log.info("No vector store configured (spring.ai.vectorstore.type); knowledge ingestion skipped");
+            return 0;
+        }
         var splitter = new TokenTextSplitter();   // default ~800-token chunks
         int chunks = 0;
         try {
@@ -55,8 +62,8 @@ class KnowledgeIngestor {
                 String source = file.getFilename();
                 var doc = new Document(text, Map.of("source", source, "sha256", sha256(text)));
                 List<Document> parts = splitter.apply(List.of(doc));
-                vectorStore.delete("source == '" + source + "'");
-                vectorStore.add(parts);
+                store.delete("source == '" + source + "'");
+                store.add(parts);
                 chunks += parts.size();
             }
             log.info("Ingested {} knowledge files into {} chunks", files.length, chunks);
