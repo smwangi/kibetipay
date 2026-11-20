@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { Button, Card, cn, Notice, PageHeader, Spinner } from "@/components/ui";
 import { api } from "@/lib/api";
 
@@ -39,7 +39,7 @@ export default function AssistantPage() {
     }
   }
 
-  function onSubmit(event: FormEvent) {
+  function onSubmit(event: SubmitEvent) {
     event.preventDefault();
     void ask(draft);
   }

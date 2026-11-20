@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type SubmitEvent } from "react";
 import { useSWRConfig } from "swr";
 import { TERMINAL_TRANSFER } from "@/components/transfers";
 import { Button, Card, Dl, Field, Notice, PageHeader, Spinner, StatusBadge } from "@/components/ui";
@@ -20,7 +20,7 @@ export default function SendPage() {
   const [fieldErrors, setFieldErrors] = useState<{ recipient?: string; amount?: string }>({});
   const [busy, setBusy] = useState(false);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const recipient = String(form.get("recipient") ?? "").trim();

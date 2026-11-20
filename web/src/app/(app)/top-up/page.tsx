@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type SubmitEvent, type ReactNode } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { Button, Card, cn, Dl, Field, Notice, PageHeader, Spinner, StatusBadge } from "@/components/ui";
 import { api, fetcher, newIdempotencyKey } from "@/lib/api";
@@ -55,7 +55,7 @@ function MobileMoneyTopUp() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const msisdn = String(form.get("msisdn") ?? "").replace(/[\s-]/g, "").replace(/^\+/, "");
@@ -164,7 +164,7 @@ function SimulatedDeposit() {
   const [receipt, setReceipt] = useState<PostingReceipt | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const amount = String(new FormData(event.currentTarget).get("amount") ?? "").trim();
     const invalid = parseAmount(amount);
