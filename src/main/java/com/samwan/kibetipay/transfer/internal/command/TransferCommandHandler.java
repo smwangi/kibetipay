@@ -4,6 +4,7 @@ import com.samwan.kibetipay.shared.error.DomainException;
 import com.samwan.kibetipay.shared.money.Money;
 import com.samwan.kibetipay.transfer.TransferEvents.TransferRequested;
 import com.samwan.kibetipay.wallet.WalletApi;
+import io.micrometer.observation.annotation.Observed;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;
@@ -32,32 +33,42 @@ public class TransferCommandHandler {
     private final ApplicationEventPublisher events;
     private final TransactionTemplate tx;
     private final TransferProperties props;
+    private final TransferTelemetry telemetry;
 
     TransferCommandHandler(TransferRepository transfers, WalletApi wallets, ApplicationEventPublisher events,
-                           TransactionTemplate tx, TransferProperties props) {
+                           TransactionTemplate tx, TransferProperties props, TransferTelemetry telemetry) {
         this.transfers = transfers;
         this.wallets = wallets;
         this.events = events;
         this.tx = tx;
         this.props = props;
+        this.telemetry = telemetry;
     }
 
+    @Observed(name = "transfer.initiate")
     public Accepted initiate(InitiateTransfer cmd) {
         // Fast path: client retried with the same Idempotency-Key.
         var existing = transfers.findByInitiatorIdAndIdempotencyKey(cmd.initiatorId(), cmd.idempotencyKey());
         if (existing.isPresent()) {
             return replay(existing.get(), cmd);
         }
-        validate(cmd);
+        try {
+            validate(cmd);
+        } catch (DomainException rejected) {
+            telemetry.requestRejected(rejected.code());
+            throw rejected;
+        }
         for (int attempt = 1; ; attempt++) {
             try {
-                return tx.execute(status -> {
-                    var transfer = Transfer.initiate(cmd.initiatorId(), cmd.recipientId(), cmd.amount(), cmd.note(),
+                var transfer = tx.execute(status -> {
+                    var t = Transfer.initiate(cmd.initiatorId(), cmd.recipientId(), cmd.amount(), cmd.note(),
                             cmd.idempotencyKey());
-                    transfers.saveAndFlush(transfer);
-                    events.publishEvent(new TransferRequested(transfer.id()));
-                    return new Accepted(transfer.id(), transfer.txnRef(), false);
+                    transfers.saveAndFlush(t);
+                    events.publishEvent(new TransferRequested(t.id()));
+                    return t;
                 });
+                telemetry.requested(transfer);
+                return new Accepted(transfer.id(), transfer.txnRef(), false);
             } catch (DataIntegrityViolationException conflict) {
                 // Usually two identical requests raced and the idempotency constraint picked a winner.
                 var winner = transfers.findByInitiatorIdAndIdempotencyKey(cmd.initiatorId(), cmd.idempotencyKey());
@@ -91,14 +102,16 @@ public class TransferCommandHandler {
     }
 
     /** Same key + same payload = replay. Same key + different payload = client bug, reject loudly. */
-    private static Accepted replay(Transfer t, InitiateTransfer cmd) {
+    private Accepted replay(Transfer t, InitiateTransfer cmd) {
         boolean samePayload = t.recipientId().equals(cmd.recipientId())
                 && t.amount().equals(cmd.amount())
                 && Objects.equals(t.note(), cmd.note());
         if (!samePayload) {
+            telemetry.idempotencyConflict(t);
             throw new DomainException.RuleViolation("idempotency_key_reused",
                     "Idempotency-Key was already used for a different transfer");
         }
+        telemetry.replayed(t);
         return new Accepted(t.id(), t.txnRef(), true);
     }
 }

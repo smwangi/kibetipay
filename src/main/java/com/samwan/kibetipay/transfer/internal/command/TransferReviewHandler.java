@@ -23,7 +23,7 @@ public class TransferReviewHandler {
 
     public void decline(UUID transferId, String reason) {
         requireInReview(transferId);
-        processor.reject(transferId, null, "declined_by_analyst: " + reason);
+        processor.reject(transferId, null, "declined_by_analyst: " + reason, TransferTelemetry.RejectionStage.REVIEW);
     }
 
     private void requireInReview(UUID transferId) {
