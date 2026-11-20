@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { Button, Field, Notice } from "@/components/ui";
 
 /** Messages the no-JavaScript sign-in may pass back in ?error=. Anything else is ignored. */
@@ -22,7 +22,7 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     setBusy(true);

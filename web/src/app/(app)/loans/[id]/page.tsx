@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { useSWRConfig } from "swr";
 import { Button, Card, Dl, ErrorNote, Field, Loading, Notice, PageHeader, StatusBadge } from "@/components/ui";
 import { api, newIdempotencyKey } from "@/lib/api";
@@ -148,7 +148,7 @@ function Repay({ loan, currency }: { loan: LoanDetail; currency: string | undefi
   const [receipt, setReceipt] = useState<RepaymentReceipt | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const amount = String(new FormData(event.currentTarget).get("amount") ?? "").trim();
     if (!/^\d{1,9}(\.\d{1,2})?$/.test(amount) || Number(amount) < 1) {

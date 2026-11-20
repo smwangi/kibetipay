@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { TransferRow } from "@/components/transfers";
 import { Button, Card, cn, Dl, EmptyState, ErrorNote, Loading, Notice, PageHeader, StatusBadge } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -104,7 +104,7 @@ function ReferenceLookup() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const ref = String(new FormData(event.currentTarget).get("ref") ?? "").trim().toUpperCase();
     if (!ref) return;
