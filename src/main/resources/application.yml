@@ -7,6 +7,11 @@ spring:
   threads:
     virtual:
       enabled: true            # Java 21 virtual threads for request + async work
+  task:
+    execution:
+      # Carry the trace (and MDC) across @Async hand-offs, so the transfer saga that runs after
+      # commit appears in the same trace as the POST that started it.
+      propagate-context: true
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5433/kibetipay}
     username: ${DB_USERNAME:kibetipay}
@@ -74,6 +79,22 @@ management:
   tracing:
     sampling:
       probability: 0.1
+  # Telemetry export is off the payment path: spans, log records and metrics are batched and
+  # exported asynchronously from bounded queues, so a down Collector loses telemetry, never money.
+  # Trace and log export start only once an endpoint is known (compose service connection in dev,
+  # MANAGEMENT_OPENTELEMETRY_{TRACING,LOGGING}_EXPORT_OTLP_ENDPOINT elsewhere). OTLP metrics
+  # default to localhost, so they stay off unless a profile opts in; Prometheus scraping always works.
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  metrics:
+    distribution:
+      percentiles-histogram:
+        kibetipay.transfer.settlement: true
+        transfer.process: true
+        ledger.post: true
+        risk.assess: true
 
 app:
   currencies:

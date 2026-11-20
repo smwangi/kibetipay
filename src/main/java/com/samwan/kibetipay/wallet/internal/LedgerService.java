@@ -3,6 +3,7 @@ package com.samwan.kibetipay.wallet.internal;
 import com.samwan.kibetipay.shared.error.DomainException;
 import com.samwan.kibetipay.shared.money.Money;
 import com.samwan.kibetipay.wallet.WalletApi;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.annotation.Observed;
 import java.util.List;
 import java.util.Map;
@@ -28,13 +29,15 @@ class LedgerService implements WalletApi {
     private final JournalRepository journals;
     private final JdbcClient jdbc;
     private final LedgerProperties props;
+    private final MeterRegistry metrics;
 
     LedgerService(WalletAccountRepository wallets, JournalRepository journals, JdbcClient jdbc,
-                  LedgerProperties props) {
+                  LedgerProperties props, MeterRegistry metrics) {
         this.wallets = wallets;
         this.journals = journals;
         this.jdbc = jdbc;
         this.props = props;
+        this.metrics = metrics;
     }
 
     @Override
@@ -111,7 +114,13 @@ class LedgerService implements WalletApi {
         // 1. Idempotency: a replayed event or client retry must not move money twice.
         var existing = journals.findByReference(request.reference());
         if (existing.isPresent()) {
-            log.info("Replay of posting {} ignored", request.reference());
+            // Expected after an outbox republish or client retry; money must not move twice.
+            log.atInfo()
+                    .addKeyValue("event", "ledger.posting.replayed")
+                    .addKeyValue("reference", request.reference())
+                    .addKeyValue("kind", request.kind())
+                    .log("Replay of posting {} ignored", request.reference());
+            metrics.counter("kibetipay.idempotency.replays", "scope", "ledger").increment();
             return replayReceipt(existing.get(), request, firstDebitOwner, currency);
         }
 
@@ -138,6 +147,13 @@ class LedgerService implements WalletApi {
         try {
             journals.saveAndFlush(journal);   // unique(reference) guards concurrent duplicates
         } catch (DataIntegrityViolationException race) {
+            log.atWarn()
+                    .addKeyValue("event", "ledger.posting.duplicate")
+                    .addKeyValue("reference", request.reference())
+                    .addKeyValue("kind", request.kind())
+                    .log("Concurrent duplicate posting {} rejected by unique constraint", request.reference());
+            metrics.counter("kibetipay.ledger.posting.failures", "kind", request.kind(),
+                    "reason", "duplicate_posting").increment();
             throw new DomainException.Conflict("duplicate_posting", "Posting " + request.reference() + " already exists");
         }
         return new PostingReceipt(journal.id(), request.reference(), locked.get(firstDebitOwner).balance(), false);

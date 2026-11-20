@@ -8,9 +8,9 @@ import com.samwan.kibetipay.transfer.TransferEvents.TransferCompleted;
 import com.samwan.kibetipay.transfer.TransferEvents.TransferHeldForReview;
 import com.samwan.kibetipay.transfer.TransferEvents.TransferRejected;
 import com.samwan.kibetipay.transfer.TransferEvents.TransferRequested;
+import com.samwan.kibetipay.transfer.internal.command.TransferTelemetry.RejectionStage;
 import com.samwan.kibetipay.wallet.WalletApi;
 import com.samwan.kibetipay.wallet.WalletApi.Posting;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.annotation.Observed;
 import java.time.Instant;
 import java.util.UUID;
@@ -44,20 +44,22 @@ class TransferProcessor {
     private final WalletApi wallets;
     private final ApplicationEventPublisher events;
     private final TransactionTemplate tx;
-    private final MeterRegistry metrics;
+    private final TransferTelemetry telemetry;
 
     TransferProcessor(TransferRepository transfers, RiskApi risk, WalletApi wallets,
-                      ApplicationEventPublisher events, TransactionTemplate tx, MeterRegistry metrics) {
+                      ApplicationEventPublisher events, TransactionTemplate tx, TransferTelemetry telemetry) {
         this.transfers = transfers;
         this.risk = risk;
         this.wallets = wallets;
         this.events = events;
         this.tx = tx;
-        this.metrics = metrics;
+        this.telemetry = telemetry;
     }
 
     /**
-     * Runs after the initiating transaction commits, on a separate (virtual) thread.
+     * Runs after the initiating transaction commits, on a separate (virtual) thread. The trace
+     * context is carried over ({@code spring.task.execution.propagate-context}), so this span is a
+     * child of the POST that created the transfer.
      * Not {@code @ApplicationModuleListener} on purpose: that wraps the whole listener in one
      * transaction, and a failed ledger posting would then roll back the risk record too.
      */
@@ -65,7 +67,13 @@ class TransferProcessor {
     @TransactionalEventListener
     @Observed(name = "transfer.process")
     void on(TransferRequested event) {
-        process(event.transferId());
+        try {
+            process(event.transferId());
+        } catch (RuntimeException e) {
+            // Rethrown so the outbox publication stays incomplete and is retried.
+            telemetry.processingError(event.transferId(), e);
+            throw e;
+        }
     }
 
     void process(UUID transferId) {
@@ -80,7 +88,8 @@ class TransferProcessor {
                 transfer.recipientId(), transfer.amount(), balance, transfer.createdAt()));
 
         switch (decision.outcome()) {
-            case REJECT -> reject(transferId, decision.score(), "risk_rejected: " + String.join(", ", decision.reasons()));
+            case REJECT -> reject(transferId, decision.score(),
+                    "risk_rejected: " + String.join(", ", decision.reasons()), RejectionStage.RISK);
             case REVIEW -> holdForReview(transferId, decision.score());
             case APPROVE -> settle(transferId, decision.score());
         }
@@ -101,46 +110,58 @@ class TransferProcessor {
             fail(transferId, businessFailure.code());
             return;
         }
-        tx.executeWithoutResult(s -> {
+        Transfer completed = tx.execute(s -> {
             var t = transfers.findById(transferId).orElseThrow();
             if (t.isTerminal()) {
-                return;
+                return null;
             }
             t.complete(receipt.journalId(), score);
             events.publishEvent(new TransferCompleted(t.id(), t.initiatorId(), t.recipientId(),
                     t.amount().minor(), t.amount().currencyCode(), t.note(),
                     t.riskScore() == null ? 0 : t.riskScore(), Instant.now()));
+            return t;
         });
-        metrics.counter("kibetipay.transfers", "outcome", "completed").increment();
+        // Telemetry after commit, and only when this call made the state change.
+        if (completed != null) {
+            telemetry.completed(completed, receipt.journalId());
+        }
     }
 
-    void reject(UUID transferId, Integer score, String reason) {
-        tx.executeWithoutResult(s -> {
+    void reject(UUID transferId, Integer score, String reason, RejectionStage stage) {
+        Transfer rejected = tx.execute(s -> {
             var t = transfers.findById(transferId).orElseThrow();
             if (t.isTerminal()) {
-                return;
+                return null;
             }
             t.reject(score, reason);
             events.publishEvent(new TransferRejected(t.id(), t.initiatorId(), reason, Instant.now()));
+            return t;
         });
-        metrics.counter("kibetipay.transfers", "outcome", "rejected").increment();
+        if (rejected != null) {
+            telemetry.rejected(rejected, score, stage);
+        }
     }
 
     private void holdForReview(UUID transferId, int score) {
-        tx.executeWithoutResult(s -> {
+        Transfer held = tx.execute(s -> {
             var t = transfers.findById(transferId).orElseThrow();
             t.holdForReview(score);
             events.publishEvent(new TransferHeldForReview(t.id(), t.initiatorId(), score, Instant.now()));
+            return t;
         });
-        metrics.counter("kibetipay.transfers", "outcome", "review").increment();
+        telemetry.heldForReview(held, score);
     }
 
     private void fail(UUID transferId, String reason) {
-        tx.executeWithoutResult(s -> transfers.findById(transferId).ifPresent(t -> {
-            if (!t.isTerminal()) {
-                t.fail(reason);
-            }
-        }));
-        metrics.counter("kibetipay.transfers", "outcome", "failed").increment();
+        Boolean changed = tx.execute(s -> transfers.findById(transferId)
+                .filter(t -> !t.isTerminal())
+                .map(t -> {
+                    t.fail(reason);
+                    return true;
+                })
+                .orElse(false));
+        if (Boolean.TRUE.equals(changed)) {
+            telemetry.failed(transferId, reason);
+        }
     }
 }

@@ -23,6 +23,8 @@
         <spring-ai.version>2.0.2</spring-ai.version>
         <opensearch-java.version>3.10.0</opensearch-java.version>
         <opensearch-testcontainers.version>4.1.0</opensearch-testcontainers.version>
+        <!-- Not managed by Boot; 2.28.x is built against OpenTelemetry API 1.62.0 (Boot 4.1's version) -->
+        <opentelemetry-logback-appender.version>2.28.0-alpha</opentelemetry-logback-appender.version>
     </properties>
 
     <dependencyManagement>
@@ -69,6 +71,17 @@
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <!-- OpenTelemetry: Micrometer tracing bridge + OTLP exporters for traces, metrics and logs -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-opentelemetry</artifactId>
+        </dependency>
+        <!-- Bridges Logback events (with SLF4J key-values and trace ids) to the OTLP log exporter -->
+        <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-logback-appender-1.0</artifactId>
+            <version>${opentelemetry-logback-appender.version}</version>
         </dependency>
 
         <!-- Persistence -->
