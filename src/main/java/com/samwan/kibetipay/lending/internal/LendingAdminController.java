@@ -70,7 +70,7 @@ class LendingAdminController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void decline(@PathVariable UUID id, @Valid @RequestBody DeclineRequest body) {
         saga.requireInReview(id);
-        saga.decline(id, "analyst: " + body.reason());
+        saga.decline(id, LendingTelemetry.DeclineReason.ANALYST, "analyst: " + body.reason());
     }
 
     /** Run end-of-day for a business date (defaults to today). Handy for demos: "fast-forward" a loan into arrears. */

@@ -25,6 +25,8 @@
         <opensearch-testcontainers.version>4.1.0</opensearch-testcontainers.version>
         <!-- Not managed by Boot; 2.28.x is built against OpenTelemetry API 1.62.0 (Boot 4.1's version) -->
         <opentelemetry-logback-appender.version>2.28.0-alpha</opentelemetry-logback-appender.version>
+        <!-- Not managed by Boot; the 2.3.x line targets Spring Boot 4.1 -->
+        <datasource-micrometer.version>2.3.1</datasource-micrometer.version>
     </properties>
 
     <dependencyManagement>
@@ -82,6 +84,12 @@
             <groupId>io.opentelemetry.instrumentation</groupId>
             <artifactId>opentelemetry-logback-appender-1.0</artifactId>
             <version>${opentelemetry-logback-appender.version}</version>
+        </dependency>
+        <!-- JDBC observations: a span per connection acquisition and per query, nested under the business span -->
+        <dependency>
+            <groupId>net.ttddyy.observation</groupId>
+            <artifactId>datasource-micrometer-spring-boot</artifactId>
+            <version>${datasource-micrometer.version}</version>
         </dependency>
 
         <!-- Persistence -->

@@ -60,6 +60,10 @@ services:
       - "4318:4318"
     volumes:
       - lgtm:/data
+      # KibetiPay dashboard ("KibetiPay" folder) and alert rules, versioned in observability/grafana
+      - ./observability/grafana/provisioning/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/kibetipay.yaml:ro
+      - ./observability/grafana/dashboards:/otel-lgtm/kibetipay-dashboards:ro
+      - ./observability/grafana/provisioning/alerts.yaml:/otel-lgtm/grafana/conf/provisioning/alerting/kibetipay.yaml:ro
 
 volumes:
   lgtm:
