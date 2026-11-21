@@ -88,6 +88,9 @@ management:
     metrics:
       export:
         enabled: false
+        # OTLP defaults to milliseconds; seconds keeps names identical to the Prometheus scrape
+        # (e.g. ledger_post_seconds_bucket), so one dashboard works for both export paths.
+        base-time-unit: seconds
   metrics:
     distribution:
       percentiles-histogram:
@@ -95,8 +98,22 @@ management:
         transfer.process: true
         ledger.post: true
         risk.assess: true
+        lending.repay: true
+        kibetipay.external.request.duration: true
+
+# JDBC spans (datasource-micrometer): connection acquisition shows pool waits, query spans show
+# slow SQL and lock waits. Row fetches are left out as noise. Bind parameter values are never
+# recorded: they carry amounts and user ids.
+jdbc:
+  includes: connection, query
+  datasource-proxy:
+    include-parameter-values: false
 
 app:
+  reconciliation:
+    # Independent ledger checks (journals balance, balances match entries, trial balance is zero).
+    # Read-only; results are exported as kibetipay.reconciliation.* gauges.
+    interval: ${KIBETIPAY_RECONCILIATION_INTERVAL:PT5M}
   currencies:
     # Registry only: the ledger remains limited to the configured operating currency for now.
     enabled: ${KIBETIPAY_ENABLED_CURRENCIES:${app.ledger.default-currency}}

@@ -1,0 +1,438 @@
+# Grafana-managed alert rules, mounted into otel-lgtm by compose.yaml. JSON is valid YAML. Keep rule uids stable.
+{
+  "apiVersion": 1,
+  "groups": [
+    {
+      "orgId": 1,
+      "name": "kibetipay-money-integrity",
+      "folder": "KibetiPay",
+      "interval": "1m",
+      "rules": [
+        {
+          "uid": "kp-ledger-mismatch",
+          "title": "Ledger reconciliation mismatch",
+          "condition": "B",
+          "for": "0s",
+          "noDataState": "NoData",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "critical",
+            "service": "kibetipay"
+          },
+          "annotations": {
+            "summary": "The ledger failed an independent consistency check",
+            "description": "Journals do not balance, a stored balance differs from its entries, or the trial balance is not zero. Money may have been created or lost. Find samples in Loki: {event=\"ledger.reconciliation.mismatch\"}. Fix with a correcting journal, never by editing balances.",
+            "dashboardUid": "kibetipay-ops"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "sum(kibetipay_reconciliation_mismatches{scope=\"ledger\"})",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "kp-reconciliation-stale",
+          "title": "Ledger reconciliation not running",
+          "condition": "B",
+          "for": "5m",
+          "noDataState": "NoData",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "warning",
+            "service": "kibetipay"
+          },
+          "annotations": {
+            "summary": "No ledger reconciliation in the last 15 minutes",
+            "description": "With the job stopped, a mismatch count of 0 can no longer be trusted. Check for ledger.reconciliation.error events.",
+            "dashboardUid": "kibetipay-ops"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "time() - max(kibetipay_reconciliation_last_run_seconds{scope=\"ledger\"})",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        900
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "kp-transfer-outcome-unknown",
+          "title": "Transfers with unknown outcome",
+          "condition": "B",
+          "for": "10m",
+          "noDataState": "NoData",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "warning",
+            "service": "kibetipay"
+          },
+          "annotations": {
+            "summary": "Transfer processing keeps failing with unexpected errors",
+            "description": "The outbox retries these. If they persist, reconcile the affected transferIds against the ledger (Loki: {event=\"transfer.processing.error\"}).",
+            "dashboardUid": "kibetipay-ops"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "sum(increase(kibetipay_transfer_processing_errors_total[10m]))",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "kp-commission-failures",
+          "title": "Commission posting failures",
+          "condition": "B",
+          "for": "0s",
+          "noDataState": "NoData",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "warning",
+            "service": "kibetipay"
+          },
+          "annotations": {
+            "summary": "Commission posting failed; the repayment was rolled back",
+            "description": "No money moved, but the payer saw an error. Loki: {event=\"commission.posting.failed\"}.",
+            "dashboardUid": "kibetipay-ops"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "sum(increase(kibetipay_commission_posting_failures_total[10m]))",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "kp-mm-unknown-collections",
+          "title": "Mobile money collections with unknown outcome",
+          "condition": "B",
+          "for": "15m",
+          "noDataState": "NoData",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "critical",
+            "service": "kibetipay"
+          },
+          "annotations": {
+            "summary": "A provider call ended without a trustworthy result",
+            "description": "The customer may have been charged without a wallet credit. Check the provider statement; never resubmit automatically.",
+            "dashboardUid": "kibetipay-ops"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "sum(kibetipay_mobilemoney_collections_unresolved{state=\"unknown\"})",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "kp-mm-reconciliation",
+          "title": "Mobile money reconciliation exceptions",
+          "condition": "B",
+          "for": "1h",
+          "noDataState": "NoData",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "warning",
+            "service": "kibetipay"
+          },
+          "annotations": {
+            "summary": "Provider statement lines disagree with expected payments or are unattributed",
+            "description": "See GET /api/admin/mobile-money/reconciliation and book unattributed collections to suspense.",
+            "dashboardUid": "kibetipay-ops"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "sum(kibetipay_reconciliation_mismatches{scope=\"mobilemoney\"})",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "orgId": 1,
+      "name": "kibetipay-service-health",
+      "folder": "KibetiPay",
+      "interval": "1m",
+      "rules": [
+        {
+          "uid": "kp-transfer-failure-ratio",
+          "title": "Transfer failure ratio above 5%",
+          "condition": "B",
+          "for": "10m",
+          "noDataState": "NoData",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "warning",
+            "service": "kibetipay"
+          },
+          "annotations": {
+            "summary": "More than 5% of transfers fail at the ledger",
+            "description": "Confirmed failures (funds spent since the request, frozen wallet). Breakdown: kibetipay_ledger_posting_failures_total by reason.",
+            "dashboardUid": "kibetipay-ops"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "sum(increase(kibetipay_transfers_total{outcome=\"failed\"}[10m])) / clamp_min(sum(increase(kibetipay_transfers_total[10m])), 1)",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0.05
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "kp-settlement-latency",
+          "title": "Transfer settlement p95 above 2s",
+          "condition": "B",
+          "for": "10m",
+          "noDataState": "NoData",
+          "execErrState": "Error",
+          "labels": {
+            "severity": "warning",
+            "service": "kibetipay"
+          },
+          "annotations": {
+            "summary": "Transfers are slow to settle",
+            "description": "Open a slow trace in Tempo and check the JDBC spans under ledger.post for lock waits.",
+            "dashboardUid": "kibetipay-ops"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "histogram_quantile(0.95, sum by (le) (rate(kibetipay_transfer_settlement_seconds_bucket[5m])))",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "B",
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        2
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

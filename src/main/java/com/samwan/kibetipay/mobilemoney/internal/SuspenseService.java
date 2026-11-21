@@ -55,12 +55,14 @@ class SuspenseService {
     private final WalletApi wallets;
     private final TransactionTemplate tx;
     private final Clock clock;
+    private final MobileMoneyTelemetry telemetry;
 
-    SuspenseService(JdbcClient jdbc, WalletApi wallets, TransactionTemplate tx, Clock clock) {
+    SuspenseService(JdbcClient jdbc, WalletApi wallets, TransactionTemplate tx, Clock clock, MobileMoneyTelemetry telemetry) {
         this.jdbc = jdbc;
         this.wallets = wallets;
         this.tx = tx;
         this.clock = clock;
+        this.telemetry = telemetry;
     }
 
     /** Books an unmatched provider collection into suspense. Replays return the existing item. */
@@ -115,6 +117,7 @@ class SuspenseService {
                     """).param("id", id).param("tx", p.id()).param("amount", p.amountMinor())
                     .param("currency", p.currency()).param("reason", reason).param("journal", journalId)
                     .param("now", Timestamp.from(Instant.now(clock))).param("actor", actor).update();
+            telemetry.suspenseOpened(id, p.id(), p.amountMinor(), p.currency());
             return byId(id, false);
         });
     }
@@ -147,6 +150,7 @@ class SuspenseService {
                     WHERE id = :id AND status = 'OPEN'
                     """).param("owner", ownerId).param("note", note).param("journal", journalId)
                     .param("now", Timestamp.from(Instant.now(clock))).param("actor", actor).param("id", itemId).update();
+            telemetry.suspenseAllocated(itemId, journalId, item.amountMinor(), item.currency());
             return byId(itemId, false);
         });
     }
