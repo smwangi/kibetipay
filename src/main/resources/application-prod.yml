@@ -18,6 +18,11 @@ management:
       exposure:
         include: health,info,prometheus   # configprops/env stay closed
 
+logging:
+  structured:
+    format:
+      console: ecs                        # one JSON object per line, incl. traceId/spanId and SLF4J key-values
+
 app:
   assistant:
     ingest-on-startup: false              # run ingestion as a job, not on every pod start
