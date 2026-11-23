@@ -1,0 +1,10 @@
+# Mounted into the otel-lgtm container by compose.yaml. Loads every dashboard JSON in
+# observability/grafana/dashboards into a "KibetiPay" folder; edits in the UI are not saved back.
+apiVersion: 1
+providers:
+  - name: kibetipay
+    folder: KibetiPay
+    type: file
+    allowUiUpdates: false
+    options:
+      path: /otel-lgtm/kibetipay-dashboards

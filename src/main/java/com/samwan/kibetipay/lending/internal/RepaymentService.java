@@ -49,9 +49,11 @@ class RepaymentService {
     private final LendingProperties props;
     private final ApplicationEventPublisher events;
     private final Clock clock;
+    private final LendingTelemetry telemetry;
 
     RepaymentService(LoanRepository loans, AgentApi agents, WalletApi wallets, JdbcClient jdbc,
-                     LendingProperties props, ApplicationEventPublisher events, Clock clock) {
+                     LendingProperties props, ApplicationEventPublisher events, Clock clock,
+                     LendingTelemetry telemetry) {
         this.loans = loans;
         this.agents = agents;
         this.wallets = wallets;
@@ -59,16 +61,28 @@ class RepaymentService {
         this.props = props;
         this.events = events;
         this.clock = clock;
+        this.telemetry = telemetry;
     }
 
     @Observed(name = "lending.repay")
     @Transactional
     Receipt repay(UUID loanId, String payerId, Channel channel, Money amount, String reference) {
+        try {
+            return doRepay(loanId, payerId, channel, amount, reference);
+        } catch (DomainException rejected) {
+            // Thrown before or instead of any posting; the transaction rolls back, nothing moved.
+            telemetry.repaymentRejected(loanId, channel, rejected);
+            throw rejected;
+        }
+    }
+
+    private Receipt doRepay(UUID loanId, String payerId, Channel channel, Money amount, String reference) {
         var loan = loans.findForUpdate(loanId)
                 .orElseThrow(() -> new DomainException.NotFound("loan_not_found", "No loan " + loanId));
         authorise(loan, payerId, channel);
         var replay = findByReference(reference, loanId, payerId, channel, amount);
         if (replay != null) {
+            telemetry.repaymentReplayed(loanId, channel);
             return replay;
         }
         if (!loan.currency().equals(amount.currencyCode())) {
@@ -107,6 +121,8 @@ class RepaymentService {
                 .update();
 
         payCommission(loan, repaymentId, a.interest() + a.fee(), cur, now);
+        telemetry.repaymentPosted(loanId, repaymentId, channel, amount.minor(), cur, a.principal(), a.interest(),
+                a.fee(), a.penalty(), closed);
 
         events.publishEvent(new RepaymentReceived(loanId, repaymentId, loan.borrowerId(), channel.name(),
                 amount.minor(), now));
@@ -126,6 +142,15 @@ class RepaymentService {
         if (pool == 0) {
             return;
         }
+        try {
+            postCommission(loan, repaymentId, pool, cur, now);
+        } catch (RuntimeException e) {
+            telemetry.commissionFailed(loan.id(), repaymentId, e);
+            throw e;
+        }
+    }
+
+    private void postCommission(Loan loan, UUID repaymentId, long pool, String cur, Instant now) {
         var lineage = agents.lineage(loan.agentId());
         var shares = CommissionSplitter.split(pool, props.commissionSplit(), lineage.size());
 
@@ -145,6 +170,7 @@ class RepaymentService {
                     .update();
         }
         wallets.postJournal(new JournalRequest("loan:commission:" + repaymentId, LendingJournalKinds.COMMISSION, legs));
+        telemetry.commissionPosted(loan.id(), repaymentId, pool, cur, shares.size());
     }
 
     private void authorise(Loan loan, String payerId, Channel channel) {

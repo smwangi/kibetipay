@@ -5,13 +5,14 @@ import com.samwan.kibetipay.agent.AgentApi;
 import com.samwan.kibetipay.lending.LendingEvents.LoanApplied;
 import com.samwan.kibetipay.lending.LendingEvents.LoanDeclined;
 import com.samwan.kibetipay.lending.LendingEvents.LoanDisbursed;
+import com.samwan.kibetipay.lending.internal.LendingTelemetry.DeclineReason;
+import com.samwan.kibetipay.lending.internal.LendingTelemetry.ReviewReason;
 import com.samwan.kibetipay.risk.RiskApi;
 import com.samwan.kibetipay.shared.error.DomainException;
 import com.samwan.kibetipay.wallet.WalletApi;
 import com.samwan.kibetipay.wallet.WalletApi.JournalRequest;
 import com.samwan.kibetipay.wallet.WalletApi.Leg;
 import com.samwan.kibetipay.wallet.WalletApi.SystemAccounts;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.annotation.Observed;
 import java.time.Clock;
 import java.time.Instant;
@@ -44,11 +45,11 @@ class LoanDecisionSaga {
     private final ApplicationEventPublisher events;
     private final TransactionTemplate tx;
     private final Clock clock;
-    private final MeterRegistry metrics;
+    private final LendingTelemetry telemetry;
 
     LoanDecisionSaga(LoanRepository loans, ProductCatalog products, CreditModel creditModel, AgentApi agents,
                      RiskApi risk, WalletApi wallets, JdbcClient jdbc, LendingProperties props,
-                     ApplicationEventPublisher events, TransactionTemplate tx, Clock clock, MeterRegistry metrics) {
+                     ApplicationEventPublisher events, TransactionTemplate tx, Clock clock, LendingTelemetry telemetry) {
         this.loans = loans;
         this.products = products;
         this.creditModel = creditModel;
@@ -60,7 +61,7 @@ class LoanDecisionSaga {
         this.events = events;
         this.tx = tx;
         this.clock = clock;
-        this.metrics = metrics;
+        this.telemetry = telemetry;
     }
 
     @Async
@@ -82,7 +83,7 @@ class LoanDecisionSaga {
         String reasons = creditModel.name() + ": " + String.join(", ", score.reasons());
         tx.executeWithoutResult(s -> loans.findById(loanId).orElseThrow().scored(score.value(), reasons));
         if (score.hardDecline() || score.value() < props.reviewScore()) {
-            decline(loanId, "credit: " + reasons);
+            decline(loanId, DeclineReason.CREDIT, "credit: " + reasons);
             return;
         }
 
@@ -90,7 +91,7 @@ class LoanDecisionSaga {
         var agent = agents.get(loan.agentId());
         long exposure = agentExposure(agent.id()) + loan.principal().minor();
         if (exposure > agent.lendingLimit().minor()) {
-            decline(loanId, "agent_limit_exceeded");
+            decline(loanId, DeclineReason.AGENT_LIMIT, "agent_limit_exceeded");
             return;
         }
 
@@ -101,11 +102,11 @@ class LoanDecisionSaga {
                 loan.principal(), pool, loan.appliedAt()));
         switch (fraud.outcome()) {
             case REJECT -> {
-                decline(loanId, "fraud: " + String.join(", ", fraud.reasons()));
+                decline(loanId, DeclineReason.FRAUD, "fraud: " + String.join(", ", fraud.reasons()));
                 return;
             }
             case REVIEW -> {
-                holdForReview(loanId);
+                holdForReview(loanId, ReviewReason.FRAUD_SIGNALS);
                 return;
             }
             case APPROVE -> { }
@@ -113,7 +114,7 @@ class LoanDecisionSaga {
 
         // 4. Borderline credit goes to a human; strong credit is auto-disbursed.
         if (score.value() < props.approveScore()) {
-            holdForReview(loanId);
+            holdForReview(loanId, ReviewReason.BORDERLINE_CREDIT);
         } else {
             disburse(loanId);
         }
@@ -125,7 +126,7 @@ class LoanDecisionSaga {
             tx.executeWithoutResult(s -> {
                 var l = loans.findForUpdate(loanId).orElseThrow();
                 if (l.status() == Loan.Status.ACTIVE) {
-                    return;
+                    return;   // replay: already disbursed, nothing to report
                 }
                 if (l.status() != Loan.Status.APPLIED && l.status() != Loan.Status.IN_REVIEW) {
                     throw new DomainException.Conflict("invalid_loan_state", "Loan " + loanId + " is " + l.status());
@@ -137,29 +138,30 @@ class LoanDecisionSaga {
                 l.activate(receipt.journalId(), LocalDate.now(clock));
                 events.publishEvent(new LoanDisbursed(l.id(), l.borrowerId(), l.agentId(), l.principal().minor(),
                         l.currency(), Instant.now(clock)));
+                telemetry.disbursed(l, receipt.journalId());   // reported after commit
             });
         } catch (WalletApi.InsufficientFundsException poolEmpty) {
-            decline(loanId, "lending_pool_exhausted");
-            return;
+            decline(loanId, DeclineReason.POOL_EXHAUSTED, "lending_pool_exhausted");
         }
-        metrics.counter("kibetipay.loans", "outcome", "disbursed").increment();
     }
 
-    void decline(UUID loanId, String reasons) {
+    void decline(UUID loanId, DeclineReason reason, String reasons) {
         tx.executeWithoutResult(s -> {
             var l = loans.findForUpdate(loanId).orElseThrow();
             if (l.status() == Loan.Status.DECLINED) {
-                return;
+                return;   // replay
             }
             l.decline(reasons);
             events.publishEvent(new LoanDeclined(l.id(), l.borrowerId(), reasons, Instant.now(clock)));
+            telemetry.declined(loanId, reason);
         });
-        metrics.counter("kibetipay.loans", "outcome", "declined").increment();
     }
 
-    private void holdForReview(UUID loanId) {
-        tx.executeWithoutResult(s -> loans.findById(loanId).orElseThrow().holdForReview());
-        metrics.counter("kibetipay.loans", "outcome", "review").increment();
+    private void holdForReview(UUID loanId, ReviewReason reason) {
+        tx.executeWithoutResult(s -> {
+            loans.findById(loanId).orElseThrow().holdForReview();
+            telemetry.heldForReview(loanId, reason);
+        });
     }
 
     void requireInReview(UUID loanId) {
