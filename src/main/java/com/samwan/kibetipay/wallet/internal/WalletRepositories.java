@@ -20,7 +20,8 @@ interface WalletAccountRepository extends JpaRepository<WalletAccount, UUID> {
      * SELECT ... FOR UPDATE, ordered by id. Locking every wallet in a posting in the same
      * global order makes deadlocks impossible when A pays B while B pays A.
      */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    // DEMO: lock removed on purpose; CI must reject this.
+    // @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select w from WalletAccount w where w.ownerId in :owners and w.currency = :currency order by w.id")
     List<WalletAccount> lockAllByOwners(@Param("owners") Collection<String> owners,
                                         @Param("currency") String currency);

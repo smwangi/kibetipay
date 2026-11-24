@@ -57,7 +57,7 @@ class WalletAccount {
     @Column(name = "allow_negative", nullable = false, updatable = false)
     private boolean allowNegative;
 
-    @Version
+    // DEMO: optimistic lock removed on purpose. @Version
     private long version;
 
     @Column(name = "created_at", nullable = false, updatable = false)
