@@ -1,6 +1,7 @@
 package com.samwan.kibetipay.wallet.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.samwan.kibetipay.TestcontainersConfig;
 import com.samwan.kibetipay.shared.error.DomainException;
@@ -96,8 +97,8 @@ class LedgerConcurrencyIntegrationTest {
 
     /**
      * A client retrying the same deposit from several connections at once (double-tapped button,
-     * proxy retry). Money must move once. Callers that lose the race get a replay receipt, or a
-     * duplicate_posting conflict if they collided on the unique reference; both are safe to retry.
+     * proxy retry). Money must move once, and every caller gets a receipt for that one posting:
+     * a retry is never answered with an error.
      */
     @Test
     void sameReferenceRaceMovesMoneyOnce() throws Exception {
@@ -106,18 +107,18 @@ class LedgerConcurrencyIntegrationTest {
 
         var outcomes = race(16, i -> () -> wallets.deposit(owner, kes(250_00), reference));
 
+        assertThat(failures(outcomes)).as("no caller sees duplicate_posting").isEmpty();
         var receipts = successes(outcomes);
+        assertThat(receipts).hasSize(16);
         assertThat(receipts.stream().filter(r -> !r.replayed()).count()).as("exactly one real posting").isEqualTo(1);
         assertThat(receipts).extracting(WalletApi.PostingReceipt::journalId).containsOnly(receipts.getFirst().journalId());
-        assertThat(failures(outcomes)).allSatisfy(e -> {
-            assertThat(e).isInstanceOf(DomainException.Conflict.class);
-            assertThat(((DomainException) e).code()).isEqualTo("duplicate_posting");
-        });
+        assertThat(receipts).extracting(WalletApi.PostingReceipt::fromBalanceAfter).containsOnly(receipts.getFirst().fromBalanceAfter());
         assertThat(balance(owner)).isEqualTo(250_00);
         assertThat(journalCount(reference)).isEqualTo(1);
 
-        // Once the race is over, a further retry is a clean replay, not an error.
-        assertThat(wallets.deposit(owner, kes(250_00), reference).replayed()).isTrue();
+        // A different amount under the same reference is still a client bug, rejected loudly.
+        assertThatThrownBy(() -> wallets.deposit(owner, kes(999_00), reference))
+                .isInstanceOf(DomainException.Conflict.class);
         assertLedgerClean();
     }
 
@@ -161,9 +162,9 @@ class LedgerConcurrencyIntegrationTest {
                     : wallets.post(new Posting(op.reference(), op.from(), op.to(), kes(op.amount()), Posting.Kind.TRANSFER));
         });
 
-        // Only failures the domain allows: overdraft, or losing a same-reference race.
-        assertThat(failures(outcomes)).allSatisfy(e -> assertThat(e).isInstanceOfAny(
-                WalletApi.InsufficientFundsException.class, DomainException.Conflict.class));
+        // The only failure the domain allows: overdraft. Concurrent retries replay, never conflict.
+        assertThat(failures(outcomes)).allSatisfy(e -> assertThat(e).isInstanceOf(
+                WalletApi.InsufficientFundsException.class));
 
         // Model: apply each reference that actually posted exactly once.
         Map<String, Long> expected = new HashMap<>();
