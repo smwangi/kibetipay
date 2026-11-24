@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# Builds with BuildKit or the classic builder (no BuildKit-only syntax).
 # KibetiPay API image. Build from the repository root:  docker build -t kibetipay-api .
 # Runs with the prod profile; every secret and endpoint comes from the environment
 # (see application-prod.yml and observability/collector/README.md).
@@ -7,10 +7,10 @@
 FROM maven:3.9-eclipse-temurin-25 AS build
 WORKDIR /src
 COPY pom.xml .
-RUN --mount=type=cache,target=/root/.m2 mvn -B -ntp -q dependency:go-offline
+RUN mvn -B -ntp -q dependency:go-offline
 COPY src ./src
 # Tests run in CI before an image is built; the image build only packages.
-RUN --mount=type=cache,target=/root/.m2 mvn -B -ntp -q package -DskipTests \
+RUN mvn -B -ntp -q package -DskipTests \
  && java -Djarmode=tools -jar target/kibetipay-*.jar extract --layers --launcher --destination /extracted
 
 # ---- runtime: JRE only, non-root, dependency layers first so they cache across releases ----

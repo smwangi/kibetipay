@@ -1,0 +1,51 @@
+# Optional overlay: production-style telemetry for the self-hosted stack.
+#
+#   docker compose -f deploy/compose.yaml -f deploy/compose.observability.yaml up -d --build
+#
+# The API exports to the Collector (bearer-token auth, tail sampling; observability/collector),
+# which forwards to Grafana/Tempo/Loki/Prometheus in otel-lgtm. Only Grafana is published, on
+# 127.0.0.1, with the admin password from deploy/.env. Needs about 1 GB more memory.
+services:
+  api:
+    environment:
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
+      MANAGEMENT_OPENTELEMETRY_LOGGING_EXPORT_OTLP_ENDPOINT: http://otel-collector:4318/v1/logs
+      MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED: "true"
+      MANAGEMENT_OTLP_METRICS_EXPORT_URL: http://otel-collector:4318/v1/metrics
+      OTEL_COLLECTOR_TOKEN: ${OTEL_COLLECTOR_TOKEN:?set OTEL_COLLECTOR_TOKEN in deploy/.env}
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.165.0
+    restart: unless-stopped
+    mem_limit: 256m                 # memory_limiter percentages are relative to this
+    command: ["--config=/etc/otelcol/config.yaml"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ../observability/collector/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    environment:
+      OTEL_INGEST_TOKEN: ${OTEL_COLLECTOR_TOKEN:?set OTEL_COLLECTOR_TOKEN in deploy/.env}
+      OTEL_BACKEND_ENDPOINT: http://otel-lgtm:4318
+      OTEL_BACKEND_AUTHORIZATION: Bearer internal-network-only   # otel-lgtm does not check it
+      OTEL_BASELINE_SAMPLE_PERCENT: ${OTEL_BASELINE_SAMPLE_PERCENT:-10}
+
+  otel-lgtm:
+    image: grafana/otel-lgtm:0.40.0
+    restart: unless-stopped
+    mem_limit: 1536m
+    environment:
+      # otel-lgtm enables anonymous access with the Admin role by default (run-grafana.sh), which
+      # would make the password meaningless. Require a login.
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in deploy/.env}
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3081}:3000"
+    volumes:
+      - lgtm:/data
+      - ../observability/grafana/provisioning/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/kibetipay.yaml:ro
+      - ../observability/grafana/dashboards:/otel-lgtm/kibetipay-dashboards:ro
+      - ../observability/grafana/provisioning/alerts.yaml:/otel-lgtm/grafana/conf/provisioning/alerting/kibetipay.yaml:ro
+
+volumes:
+  lgtm:

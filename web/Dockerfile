@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# Builds with BuildKit or the classic builder (no BuildKit-only syntax).
 # KibetiPay web image. Build from web/:  docker build -t kibetipay-web web
 # Needs at runtime: KIBETIPAY_API_URL and SESSION_SECRET (openssl rand -hex 32).
 
@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 # --ignore-scripts: the postinstall hook (next typegen) needs src/, which this cached layer
 # deliberately excludes; next build in the next stage generates the route types itself.
-RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts
+RUN npm ci --ignore-scripts
 
 # ---- build: Next.js standalone output (output: "standalone" in next.config.ts) ----
 FROM node:22-slim AS build
