@@ -56,9 +56,17 @@ curl -u alice:alice-dev localhost:8080/api/transfers
 
 ## Test
 ```bash
-mvn test        # unit + modularity tests + Testcontainers integration test (needs Docker)
+mvn test                       # unit + modularity tests + Testcontainers integration test (needs Docker)
+mvn test -Dgroups=financial    # only the financial integrity tests (needs Docker, Postgres only)
 ```
 `ModularityTests` also writes module diagrams to `target/spring-modulith-docs`.
+
+Tests tagged `financial` guard the money invariants against real Postgres row locks: concurrent
+debits never overspend, opposite-direction transfers never deadlock, a retried request (same
+Idempotency-Key or posting reference, sent concurrently) moves money once, racing loan repayments
+collect and pay commission once, and a random concurrent workload leaves every balance equal to an
+independent model with the ledger reconciliation clean. Removing the wallet row lock makes them
+fail (25 of 25 debits "succeed" against a balance that covers 10).
 
 ## Project layout
 ```

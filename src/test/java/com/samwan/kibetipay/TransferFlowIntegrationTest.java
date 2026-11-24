@@ -15,6 +15,7 @@ import com.samwan.kibetipay.wallet.WalletApi;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,6 +26,7 @@ import org.springframework.test.context.ActiveProfiles;
  * End-to-end through the real modules and a real Postgres: deposit ─▶ transfer ─▶ async risk
  * ─▶ ledger ─▶ COMPLETED, plus idempotency. AI calls are switched off so no model is needed.
  */
+@Tag("financial")
 @SpringBootTest(properties = {
         "app.ai.enabled=false",
         "app.insights.enabled=false",
