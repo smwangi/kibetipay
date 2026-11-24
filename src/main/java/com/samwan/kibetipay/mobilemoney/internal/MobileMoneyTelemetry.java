@@ -2,6 +2,7 @@ package com.samwan.kibetipay.mobilemoney.internal;
 
 import com.samwan.kibetipay.mobilemoney.MobileMoneyGateway;
 import com.samwan.kibetipay.shared.observability.AfterCommit;
+import com.samwan.kibetipay.shared.observability.TraceOutcome;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.util.UUID;
@@ -41,9 +42,11 @@ class MobileMoneyTelemetry {
     }
 
     private final MeterRegistry metrics;
+    private final TraceOutcome trace;
 
-    MobileMoneyTelemetry(MeterRegistry metrics) {
+    MobileMoneyTelemetry(MeterRegistry metrics, TraceOutcome trace) {
         this.metrics = metrics;
+        this.trace = trace;
     }
 
     /**
@@ -66,6 +69,11 @@ class MobileMoneyTelemetry {
     // ---- collections (customer pays in via STK push) ----
 
     void collectionSubmitted(UUID collectionId, String provider, long amountMinor, String currency, CallOutcome outcome) {
+        switch (outcome) {
+            case ACCEPTED -> { }
+            case REJECTED -> trace.mark("rejected");
+            case INVALID_RESPONSE, ERROR -> trace.mark("unknown");
+        }
         var builder = switch (outcome) {
             case ACCEPTED, REJECTED -> log.atInfo();
             // SUBMITTING was committed before the call; the provider may have charged the customer.
@@ -90,6 +98,7 @@ class MobileMoneyTelemetry {
     }
 
     void collectionConflict(UUID collectionId) {
+        trace.mark("rejected");
         event(log.atWarn(), "collection.idempotency.conflict", collectionId)
                 .log("Idempotency-Key reused with a different collection (original {})", collectionId);
         metrics.counter("kibetipay.mobilemoney.collections", "provider", "n/a", "result", "idempotency_conflict")
@@ -99,6 +108,9 @@ class MobileMoneyTelemetry {
     /** The provider's final result was applied. Reported after commit. */
     void collectionSettled(UUID collectionId, String provider, boolean success, UUID journalId, long amountMinor,
                            String currency) {
+        if (!success) {
+            trace.mark("failed");
+        }
         AfterCommit.run(() -> {
             event(success ? log.atInfo() : log.atWarn(), success ? "collection.completed" : "collection.failed",
                     collectionId)
@@ -114,6 +126,7 @@ class MobileMoneyTelemetry {
 
     /** A provider result that does not match what we sent. Possible fraud or integration bug. */
     void collectionResultMismatch(UUID collectionId, String code) {
+        trace.mark("rejected");
         event(log.atWarn(), "collection.result.mismatch", collectionId)
                 .addKeyValue("reason", code)
                 .log("Provider result for collection {} rejected: {}", collectionId, code);
@@ -124,6 +137,7 @@ class MobileMoneyTelemetry {
     // ---- suspense ----
 
     void suspenseOpened(UUID itemId, UUID providerTransactionId, long amountMinor, String currency) {
+        trace.mark("review");
         AfterCommit.run(() -> {
             log.atWarn()
                     .addKeyValue("event", "suspense.opened")

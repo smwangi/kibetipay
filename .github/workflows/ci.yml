@@ -90,3 +90,34 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
+
+  images:
+    name: Container images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: kibetipay
+          POSTGRES_USER: kibetipay
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kibetipay"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build API image
+        run: docker build -t kibetipay-api:ci .
+      - name: Build web image
+        run: docker build -t kibetipay-web:ci web
+      # Boot both images as production would run them and check the deployment contract.
+      - name: Smoke-test images
+        run: .github/scripts/smoke-images.sh

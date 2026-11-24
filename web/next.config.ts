@@ -13,6 +13,9 @@ const ownAddresses = Object.values(networkInterfaces())
 const extraOrigins = (process.env.KIBETIPAY_DEV_ORIGINS ?? "").split(",").map((h) => h.trim()).filter(Boolean);
 
 const nextConfig: NextConfig = {
+  // Self-contained server for the container image (web/Dockerfile): .next/standalone/server.js plus
+  // only the node_modules files it actually uses.
+  output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
   allowedDevOrigins: [...ownAddresses, ...extraOrigins],

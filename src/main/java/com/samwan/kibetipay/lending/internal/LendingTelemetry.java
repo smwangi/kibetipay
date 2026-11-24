@@ -2,6 +2,7 @@ package com.samwan.kibetipay.lending.internal;
 
 import com.samwan.kibetipay.shared.error.DomainException;
 import com.samwan.kibetipay.shared.observability.AfterCommit;
+import com.samwan.kibetipay.shared.observability.TraceOutcome;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -54,9 +55,11 @@ class LendingTelemetry {
     }
 
     private final MeterRegistry metrics;
+    private final TraceOutcome trace;
 
-    LendingTelemetry(MeterRegistry metrics) {
+    LendingTelemetry(MeterRegistry metrics, TraceOutcome trace) {
         this.metrics = metrics;
+        this.trace = trace;
     }
 
     // ---- loan decisions ----
@@ -78,6 +81,7 @@ class LendingTelemetry {
     }
 
     void declined(UUID loanId, DeclineReason reason) {
+        trace.mark("rejected");
         AfterCommit.run(() -> {
             event(log.atInfo(), "loan.declined", loanId)
                     .addKeyValue("reason", reason.tag)
@@ -88,6 +92,7 @@ class LendingTelemetry {
     }
 
     void heldForReview(UUID loanId, ReviewReason reason) {
+        trace.mark("review");
         AfterCommit.run(() -> {
             event(log.atInfo(), "loan.held_for_review", loanId)
                     .addKeyValue("reason", reason.tag)
@@ -132,6 +137,7 @@ class LendingTelemetry {
 
     /** Refused before money moved; nothing was committed. */
     void repaymentRejected(UUID loanId, RepaymentService.Channel channel, DomainException rejected) {
+        trace.mark("rejected");
         event(log.atInfo(), "loan.repayment.rejected", loanId)
                 .addKeyValue("channel", channel.name())
                 .addKeyValue("reason", rejected.code())
@@ -160,6 +166,7 @@ class LendingTelemetry {
      * rolls back: no money moved and the payer can retry with the same reference.
      */
     void commissionFailed(UUID loanId, UUID repaymentId, RuntimeException error) {
+        trace.mark("failed");
         String reason = error instanceof DomainException d ? d.code() : error.getClass().getSimpleName();
         event(log.atError(), "commission.posting.failed", loanId)
                 .addKeyValue("repaymentId", repaymentId)

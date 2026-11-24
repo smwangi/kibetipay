@@ -5,6 +5,7 @@ import ch.qos.logback.classic.LoggerContext;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 
@@ -18,24 +19,31 @@ import org.springframework.stereotype.Component;
  * Export is batched and asynchronous: a slow or unavailable Collector never blocks a caller.
  */
 @Component
-class OpenTelemetryLogAppenderInstaller implements InitializingBean {
+class OpenTelemetryLogAppenderInstaller implements InitializingBean, DisposableBean {
 
     private static final String APPENDER_NAME = "OTEL";
 
     private final OpenTelemetry openTelemetry;
+    private OpenTelemetryAppender installed;
 
     OpenTelemetryLogAppenderInstaller(OpenTelemetry openTelemetry) {
         this.openTelemetry = openTelemetry;
     }
 
+    /**
+     * Logback is JVM-global, the OpenTelemetry SDK belongs to one application context. If another
+     * context installed the appender (tests start several), replace it so this context's records
+     * go to this context's exporter.
+     */
     @Override
     public void afterPropertiesSet() {
         if (!(LoggerFactory.getILoggerFactory() instanceof LoggerContext context)) {
             return;   // not running on Logback
         }
         Logger root = context.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
-        if (root.getAppender(APPENDER_NAME) != null) {
-            return;
+        var previous = root.getAppender(APPENDER_NAME);
+        if (previous != null) {
+            root.detachAppender(previous);
         }
         var appender = new OpenTelemetryAppender();
         appender.setContext(context);
@@ -45,5 +53,18 @@ class OpenTelemetryLogAppenderInstaller implements InitializingBean {
         appender.setCaptureCodeAttributes(false);
         appender.start();
         root.addAppender(appender);
+        installed = appender;
+    }
+
+    /** Detach on shutdown so log calls never reach an SDK that has been closed. */
+    @Override
+    public void destroy() {
+        if (installed != null && LoggerFactory.getILoggerFactory() instanceof LoggerContext context) {
+            Logger root = context.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+            if (root.getAppender(APPENDER_NAME) == installed) {
+                root.detachAppender(installed);
+            }
+            installed.stop();
+        }
     }
 }

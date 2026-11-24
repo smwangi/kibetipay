@@ -1,0 +1,104 @@
+# Production OpenTelemetry Collector for KibetiPay (image: otel/opentelemetry-collector-contrib).
+# See README.md in this directory. Every value that differs per environment comes from the
+# environment; there are no secrets in this file.
+#
+#   OTEL_INGEST_TOKEN            token the apps must send (Authorization: Bearer ...)
+#   OTEL_BACKEND_ENDPOINT        OTLP/HTTP endpoint of the tracing/logging/metrics backend
+#   OTEL_BACKEND_AUTHORIZATION   Authorization header value for that backend
+#   OTEL_BASELINE_SAMPLE_PERCENT share of ordinary, healthy traces to keep (e.g. 10)
+
+extensions:
+  # Rejects OTLP requests without the shared token (HTTP 401 / gRPC Unauthenticated).
+  bearertokenauth:
+    token: ${env:OTEL_INGEST_TOKEN}
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+        auth:
+          authenticator: bearertokenauth
+      grpc:
+        endpoint: 0.0.0.0:4317
+        auth:
+          authenticator: bearertokenauth
+
+processors:
+  # First in every pipeline: under memory pressure the Collector refuses data (the apps' bounded
+  # export queues then drop it) instead of being OOM-killed and losing everything it holds.
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+
+  # Decide per whole trace, after its spans have arrived. A transfer's trace includes the
+  # asynchronous settlement that runs after the POST returns, so wait long enough for it.
+  tail_sampling:
+    decision_wait: 15s
+    num_traces: 100000
+    expected_new_traces_per_sec: 200
+    decision_cache:
+      # Spans that arrive after the decision (late retries of the saga) follow it.
+      sampled_cache_size: 200000
+      non_sampled_cache_size: 200000
+    policies:
+      # Any span with status ERROR: exceptions, 5xx, interrupted saga steps.
+      - name: errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      # Slow traces, whatever their outcome (settlement SLO is 2s at p95).
+      - name: slow
+        type: latency
+        latency:
+          threshold_ms: 2000
+      # Money did not simply move: failed, rejected, held for review or outcome unknown. These are
+      # often not errors (insufficient funds completes normally), so they need their own policy.
+      # Set by TraceOutcome in the app.
+      - name: payment-outcome
+        type: string_attribute
+        string_attribute:
+          key: kibetipay.outcome
+          values: [failed, rejected, review, unknown]
+      # A baseline of everything else, for latency distributions and "what does normal look like".
+      - name: baseline
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: ${env:OTEL_BASELINE_SAMPLE_PERCENT}
+
+  batch:
+    send_batch_size: 2048
+    timeout: 5s
+
+exporters:
+  otlphttp/backend:
+    endpoint: ${env:OTEL_BACKEND_ENDPOINT}
+    headers:
+      Authorization: ${env:OTEL_BACKEND_AUTHORIZATION}
+    sending_queue:
+      enabled: true
+      queue_size: 5000
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 300s
+
+service:
+  extensions: [bearertokenauth, health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, tail_sampling, batch]
+      exporters: [otlphttp/backend]
+    # Logs and metrics are not sampled: log events are the searchable record of what each
+    # attempt did, and metrics are already aggregated.
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/backend]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/backend]

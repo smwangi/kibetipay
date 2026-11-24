@@ -13,10 +13,39 @@ spring:
         pull-model-strategy: never
 
 management:
+  # Actuator (health probes, Prometheus metrics) listens on its own port, separate from the API on
+  # 8080. Route only 8080 publicly; 8081 is for the orchestrator's probes and the metrics scraper.
+  # Metrics reveal business volumes (transfers, commission paid), so they must not be public.
+  server:
+    port: ${MANAGEMENT_PORT:8081}
   endpoints:
     web:
       exposure:
         include: health,info,prometheus   # configprops/env stay closed
+  # Traces are sampled at the Collector, not here (observability/collector/README.md): it keeps
+  # every error, slow or non-happy-path trace plus a baseline share, which a head sampler cannot
+  # know when the first span starts. So the app records every trace by default.
+  tracing:
+    sampling:
+      probability: ${KIBETIPAY_TRACE_SAMPLING_PROBABILITY:1.0}
+  # The Collector's OTLP receiver requires a bearer token. Endpoints are set per environment:
+  # MANAGEMENT_OPENTELEMETRY_{TRACING,LOGGING}_EXPORT_OTLP_ENDPOINT, MANAGEMENT_OTLP_METRICS_EXPORT_URL.
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          headers:
+            "[Authorization]": Bearer ${OTEL_COLLECTOR_TOKEN:}
+    logging:
+      export:
+        otlp:
+          headers:
+            "[Authorization]": Bearer ${OTEL_COLLECTOR_TOKEN:}
+  otlp:
+    metrics:
+      export:
+        headers:
+          "[Authorization]": Bearer ${OTEL_COLLECTOR_TOKEN:}
 
 logging:
   structured:
