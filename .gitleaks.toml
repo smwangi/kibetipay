@@ -1,0 +1,12 @@
+# Secret scanning config (used by the gitleaks job in .github/workflows/security.yml).
+# Extends the default ruleset; the only exception is the documented dev-profile users from
+# application-dev.yml (e.g. `curl -u alice:alice-dev ...` in README examples), which work only
+# against a local dev server. Keep this list exact: never allowlist by file or by rule.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Dev-profile demo users from application-dev.yml"
+regexTarget = "match"
+regexes = ['''-u (alice:alice|bob:bob|admin:admin|wanjiru:wanjiru|otieno:otieno)-dev\b''']
