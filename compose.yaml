@@ -37,7 +37,7 @@ services:
 
   # Kibana-equivalent UI: Dev Tools console, Discover, dashboards. http://localhost:5601
   opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:3.9.0
+    image: opensearchproject/opensearch-dashboards:3.10.0
     environment:
       OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
       DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
