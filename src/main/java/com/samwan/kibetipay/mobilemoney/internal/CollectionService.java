@@ -28,13 +28,16 @@ class CollectionService {
     private final WalletApi wallets;
     private final TransactionTemplate tx;
     private final Clock clock;
+    private final MobileMoneyTelemetry telemetry;
 
-    CollectionService(JdbcClient jdbc, MobileMoneyGateway gateway, WalletApi wallets, TransactionTemplate tx, Clock clock) {
+    CollectionService(JdbcClient jdbc, MobileMoneyGateway gateway, WalletApi wallets, TransactionTemplate tx, Clock clock,
+                      MobileMoneyTelemetry telemetry) {
         this.jdbc = jdbc;
         this.gateway = gateway;
         this.wallets = wallets;
         this.tx = tx;
         this.clock = clock;
+        this.telemetry = telemetry;
     }
 
     Result initiate(String owner, String key, String msisdn, Money amount) {
@@ -56,17 +59,21 @@ class CollectionService {
             Collection existing = byKey(owner, key);
             if (!existing.msisdn().equals(msisdn) || existing.amountMinor() != amount.minor()
                     || !existing.currency().equals(amount.currencyCode())) {
+                telemetry.collectionConflict(existing.id());
                 throw new DomainException.Conflict("idempotency_key_reused", "Key was used for a different collection");
             }
+            telemetry.collectionReplayed(existing.id(), existing.provider());
             return result(existing, true);
         }
 
         // SUBMITTING is committed before the external call. A crash or timeout is ambiguous:
         // never automatically issue a second request; operations must investigate.
+        var outcome = MobileMoneyTelemetry.CallOutcome.ERROR;
         try {
-            var response = gateway.requestCollection(request);
-            if (!gateway.provider().equals(response.provider()) || response.providerRequestId() == null
-                    || response.providerRequestId().isBlank() || response.status() == null) {
+            var response = telemetry.timeCall(gateway.provider(), "collection",
+                    () -> gateway.requestCollection(request), r -> MobileMoneyTelemetry.classify(gateway, r));
+            outcome = MobileMoneyTelemetry.classify(gateway, response);
+            if (outcome == MobileMoneyTelemetry.CallOutcome.INVALID_RESPONSE) {
                 markUnknown(id);
             } else {
                 String status = (response.status() == MobileMoneyGateway.Status.ACCEPTED ? Status.PENDING : Status.REJECTED).name();
@@ -79,6 +86,7 @@ class CollectionService {
         } catch (RuntimeException e) {
             markUnknown(id);
         }
+        telemetry.collectionSubmitted(id, gateway.provider(), amount.minor(), amount.currencyCode(), outcome);
         return result(byId(id, owner, false), false);
     }
 
@@ -91,6 +99,7 @@ class CollectionService {
             if (!c.provider().equals(gateway.provider()) || c.providerRequestId() == null
                     || !c.providerRequestId().equals(providerRequestId) || c.amountMinor() != amountMinor
                     || !c.currency().equals(currency)) {
+                telemetry.collectionResultMismatch(id, "collection_result_mismatch");
                 throw new DomainException.Conflict("collection_result_mismatch", "Result does not match the collection");
             }
             if (success && (receipt == null || receipt.isBlank())) {
@@ -99,6 +108,7 @@ class CollectionService {
             boolean changed = CollectionState.requireResult(c.status(), success);
             if (!changed) {
                 if (success && !receipt.equals(c.providerReceipt())) {
+                    telemetry.collectionResultMismatch(id, "receipt_differs");
                     throw new DomainException.Conflict("collection_result_mismatch", "Receipt differs from the recorded result");
                 }
                 return result(c, true);
@@ -110,6 +120,7 @@ class CollectionService {
                       journal_id = :journal, updated_at = :now WHERE id = :id
                     """).param("status", (success ? Status.COMPLETED : Status.FAILED).name()).param("receipt", success ? receipt : null)
                     .param("journal", journalId).param("now", Timestamp.from(Instant.now(clock))).param("id", id).update();
+            telemetry.collectionSettled(id, c.provider(), success, journalId, c.amountMinor(), c.currency());
             return result(byId(id, null, false), false);
         });
     }
