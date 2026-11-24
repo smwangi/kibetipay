@@ -1,5 +1,6 @@
 package com.samwan.kibetipay.transfer.internal.command;
 
+import com.samwan.kibetipay.shared.observability.TraceOutcome;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
@@ -32,9 +33,11 @@ class TransferTelemetry {
     private static final Logger log = LoggerFactory.getLogger("kibetipay.transfer.events");
 
     private final MeterRegistry metrics;
+    private final TraceOutcome trace;
 
-    TransferTelemetry(MeterRegistry metrics) {
+    TransferTelemetry(MeterRegistry metrics, TraceOutcome trace) {
         this.metrics = metrics;
+        this.trace = trace;
     }
 
     // ---- request side (synchronous, inside POST /api/transfers) ----
@@ -59,6 +62,7 @@ class TransferTelemetry {
 
     /** Same key, different payload: a client bug worth surfacing. */
     void idempotencyConflict(Transfer existing) {
+        trace.mark("rejected");
         event(log.atWarn(), "transfer.idempotency.conflict", existing.id())
                 .log("Idempotency-Key reused with a different payload (original transfer {})", existing.id());
         metrics.counter("kibetipay.transfer.requests", "result", "rejected").increment();
@@ -68,6 +72,7 @@ class TransferTelemetry {
 
     /** Validation refused the request before anything was stored; {@code code} is a DomainException code. */
     void requestRejected(String code) {
+        trace.mark("rejected");
         log.atInfo()
                 .addKeyValue("event", "transfer.request.rejected")
                 .addKeyValue("reason", code)
@@ -94,6 +99,7 @@ class TransferTelemetry {
 
     /** Rejected after acceptance, by the risk engine or by an analyst. */
     void rejected(Transfer t, Integer score, RejectionStage stage) {
+        trace.mark("rejected");
         event(log.atInfo(), "transfer.rejected", t.id())
                 .addKeyValue("stage", stage.tag)
                 .addKeyValue("riskScore", score)
@@ -116,6 +122,7 @@ class TransferTelemetry {
     }
 
     void heldForReview(Transfer t, int score) {
+        trace.mark("review");
         event(log.atInfo(), "transfer.held_for_review", t.id())
                 .addKeyValue("riskScore", score)
                 .log("Transfer {} held for review", t.id());
@@ -127,6 +134,7 @@ class TransferTelemetry {
      * frozen). A confirmed, final failure: no money moved.
      */
     void failed(UUID transferId, String code) {
+        trace.mark("failed");
         event(log.atWarn(), "transfer.failed", transferId)
                 .addKeyValue("reason", code)
                 .log("Transfer {} failed: ledger refused posting ({})", transferId, code);
@@ -140,6 +148,7 @@ class TransferTelemetry {
      * resume. Alert when these persist, and reconcile against the ledger, not against this log.
      */
     void processingError(UUID transferId, Throwable error) {
+        trace.mark("unknown");
         event(log.atError(), "transfer.processing.error", transferId)
                 .addKeyValue("outcome", "unknown")
                 .addKeyValue("exception", error.getClass().getName())

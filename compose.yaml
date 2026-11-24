@@ -1,4 +1,6 @@
 # Picked up automatically by spring-boot-docker-compose in the dev profile.
+# Every port is published on 127.0.0.1 only. These are dev services with published passwords
+# (or none: OpenSearch security is off, Grafana is admin/admin); never expose them to the network.
 services:
   postgres:
     image: pgvector/pgvector:pg17
@@ -7,14 +9,14 @@ services:
       POSTGRES_USER: kibetipay
       POSTGRES_PASSWORD: kibetipay-dev
     ports:
-      - "5433:5432"   # host 5433: avoids clashing with a locally installed Postgres on 5432
+      - "127.0.0.1:5433:5432"   # host 5433: avoids clashing with a locally installed Postgres on 5432
     volumes:
       - pgdata:/var/lib/postgresql/data
 
   ollama:
     image: ollama/ollama:latest
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama:/root/.ollama
 
@@ -27,7 +29,7 @@ services:
       DISABLE_INSTALL_DEMO_CONFIG: "true"
       OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
     ports:
-      - "9200:9200"
+      - "127.0.0.1:9200:9200"
     volumes:
       - osdata:/usr/share/opensearch/data
     healthcheck:
@@ -42,7 +44,7 @@ services:
       OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
       DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
     ports:
-      - "5601:5601"
+      - "127.0.0.1:5601:5601"
     depends_on:
       - opensearch
     labels:
@@ -55,9 +57,9 @@ services:
   otel-lgtm:
     image: grafana/otel-lgtm:0.40.0
     ports:
-      - "3001:3000"   # Grafana; host 3000 belongs to the Next.js dev server
-      - "4317:4317"
-      - "4318:4318"
+      - "127.0.0.1:3001:3000"   # Grafana; host 3000 belongs to the Next.js dev server
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
     volumes:
       - lgtm:/data
       # KibetiPay dashboard ("KibetiPay" folder) and alert rules, versioned in observability/grafana

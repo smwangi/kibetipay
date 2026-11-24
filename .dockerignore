@@ -1,0 +1,9 @@
+# Backend image build context (repository root). Only pom.xml and src/ are copied.
+target/
+web/
+.git/
+.github/
+.idea/
+*.iml
+observability/
+docs/
