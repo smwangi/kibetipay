@@ -5,8 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.samwan.kibetipay.lending.internal.calc.RepaymentAllocator.Outstanding;
 import java.util.List;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@Tag("financial")
 class RepaymentAllocatorTest {
 
     private final List<Outstanding> twoLate = List.of(

@@ -11,6 +11,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * posting path cannot see in itself. Corruption is written inside a transaction that is rolled
  * back, so it never leaks into other tests sharing the database.
  */
+@Tag("financial")
 @SpringBootTest(properties = {
         "app.ai.enabled=false",
         "app.insights.enabled=false",

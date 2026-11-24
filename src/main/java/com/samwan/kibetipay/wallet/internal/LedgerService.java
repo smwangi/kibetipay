@@ -24,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 class LedgerService implements WalletApi {
 
     private static final Logger log = LoggerFactory.getLogger(LedgerService.class);
+    /** Advisory-lock namespace ("KP") so ledger reference locks never collide with other users of advisory locks. */
+    private static final int REFERENCE_LOCK_NAMESPACE = 0x4B50;
 
     private final WalletAccountRepository wallets;
     private final JournalRepository journals;
@@ -112,6 +114,11 @@ class LedgerService implements WalletApi {
                 .orElseThrow(() -> new IllegalArgumentException("A journal needs a debit leg"));
 
         // 1. Idempotency: a replayed event or client retry must not move money twice.
+        //    Concurrent postings of the same reference queue on a transaction-scoped advisory lock,
+        //    so the losers see the winner's committed journal and get a replay instead of colliding
+        //    on the unique constraint. Different references never contend (barring a hash clash,
+        //    which only serialises two postings briefly). Taken before the wallet locks, always.
+        lockReference(request.reference());
         var existing = journals.findByReference(request.reference());
         if (existing.isPresent()) {
             // Expected after an outbox republish or client retry; money must not move twice.
@@ -145,7 +152,7 @@ class LedgerService implements WalletApi {
         journal.assertBalanced();
 
         try {
-            journals.saveAndFlush(journal);   // unique(reference) guards concurrent duplicates
+            journals.saveAndFlush(journal);   // unique(reference): last line of defence behind the reference lock
         } catch (DataIntegrityViolationException race) {
             log.atWarn()
                     .addKeyValue("event", "ledger.posting.duplicate")
@@ -157,6 +164,12 @@ class LedgerService implements WalletApi {
             throw new DomainException.Conflict("duplicate_posting", "Posting " + request.reference() + " already exists");
         }
         return new PostingReceipt(journal.id(), request.reference(), locked.get(firstDebitOwner).balance(), false);
+    }
+
+    private void lockReference(String reference) {
+        jdbc.sql("SELECT pg_advisory_xact_lock(:ns, hashtext(:ref))")
+                .param("ns", REFERENCE_LOCK_NAMESPACE).param("ref", reference)
+                .query((rs, n) -> Boolean.TRUE).single();
     }
 
     private record SavedLeg(String owner, String direction, long amount, String currency) {}
