@@ -68,6 +68,20 @@ collect and pay commission once, and a random concurrent workload leaves every b
 independent model with the ledger reconciliation clean. Removing the wallet row lock makes them
 fail (25 of 25 debits "succeed" against a balance that covers 10).
 
+## Continuous integration
+Every pull request to `master` runs [CI](.github/workflows/ci.yml) and [Security](.github/workflows/security.yml):
+
+| Check | What it runs |
+|---|---|
+| Financial integrity | `mvn test -Dgroups=financial`: the money invariants above, on their own so a failure is named in the PR |
+| Backend tests | `mvn verify -DexcludedGroups=financial`: everything else, including OpenSearch and modularity tests |
+| Web | `npm ci`, typecheck, lint and a production build of `web/` |
+| CodeQL | Static analysis of Java and TypeScript (`security-extended` queries) |
+| Secret scan | gitleaks over the PR's commits; [.gitleaks.toml](.gitleaks.toml) allows only the documented dev users |
+
+Dependabot ([dependabot.yml](.github/dependabot.yml)) proposes weekly Maven, npm, Actions and compose
+image updates, which go through the same checks. Third-party actions are pinned to commit SHAs.
+
 ## Project layout
 ```
 com.samwan.kibetipay
