@@ -6,7 +6,9 @@
 FROM node:22-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+# --ignore-scripts: the postinstall hook (next typegen) needs src/, which this cached layer
+# deliberately excludes; next build in the next stage generates the route types itself.
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts
 
 # ---- build: Next.js standalone output (output: "standalone" in next.config.ts) ----
 FROM node:22-slim AS build
