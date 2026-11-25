@@ -7,3 +7,5 @@ application-local.yml
 secrets.yml
 
 .fake
+# Self-hosted deployment secrets and accounts (templates: deploy/*.env.example)
+deploy/users.env
