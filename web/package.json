@@ -11,25 +11,25 @@
     "postinstall": "next typegen"
   },
   "dependencies": {
-    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/api": "1.9.1",
     "@opentelemetry/api-logs": "^0.223.2",
-    "@opentelemetry/instrumentation": "^0.223.2",
+    "@opentelemetry/instrumentation": "0.223.2",
     "@opentelemetry/sdk-logs": "^0.223.2",
     "@vercel/otel": "^2.3.0",
     "next": "16.4.6",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "server-only": "^0.0.1",
     "swr": "^2.5.1"
   },
   "devDependencies": {
-    "@tailwindcss/turbopack": "4.3.3",
+    "@tailwindcss/turbopack": "4.3.5",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
-    "tailwindcss": "4.3.3",
+    "tailwindcss": "4.3.5",
     "typescript": "^5"
   }
 }
