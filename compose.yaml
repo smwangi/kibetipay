@@ -22,7 +22,7 @@ services:
 
   # Search read model (search module). Security plugin off: local dev only.
   opensearch:
-    image: opensearchproject/opensearch:3.9.0
+    image: opensearchproject/opensearch:3.10.0
     environment:
       discovery.type: single-node
       DISABLE_SECURITY_PLUGIN: "true"
