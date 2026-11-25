@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.0</version>
+        <version>4.2.0</version>
         <relativePath/>
     </parent>
 
@@ -19,12 +19,12 @@
 
     <properties>
         <java.version>25</java.version>
-        <spring-modulith.version>2.1.2</spring-modulith.version>
-        <spring-ai.version>2.0.2</spring-ai.version>
-        <opensearch-java.version>3.10.0</opensearch-java.version>
-        <opensearch-testcontainers.version>4.1.0</opensearch-testcontainers.version>
+        <spring-modulith.version>2.2.0</spring-modulith.version>
+        <spring-ai.version>2.1.0</spring-ai.version>
+        <opensearch-java.version>3.11.0</opensearch-java.version>
+        <opensearch-testcontainers.version>4.1.1</opensearch-testcontainers.version>
         <!-- Not managed by Boot; 2.28.x is built against OpenTelemetry API 1.62.0 (Boot 4.1's version) -->
-        <opentelemetry-logback-appender.version>2.28.0-alpha</opentelemetry-logback-appender.version>
+        <opentelemetry-logback-appender.version>2.34.0-alpha</opentelemetry-logback-appender.version>
         <!-- Not managed by Boot; the 2.3.x line targets Spring Boot 4.1 -->
         <datasource-micrometer.version>2.3.1</datasource-micrometer.version>
     </properties>
