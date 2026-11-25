@@ -55,7 +55,7 @@ services:
   # Grafana on http://localhost:3001 (admin/admin). Spring Boot recognises the image and points
   # the OTLP trace, metric and log exporters at it automatically. Needs roughly 1 GB of memory.
   otel-lgtm:
-    image: grafana/otel-lgtm:0.40.0
+    image: grafana/otel-lgtm:0.41.1
     ports:
       - "127.0.0.1:3001:3000"   # Grafana; host 3000 belongs to the Next.js dev server
       - "127.0.0.1:4317:4317"
