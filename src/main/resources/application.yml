@@ -4,6 +4,9 @@ spring:
     name: kibetipay
   profiles:
     default: dev
+  web:
+    error:
+      include-stacktrace: never   # Boot 4: replaces server.error.include-stacktrace
   threads:
     virtual:
       enabled: true            # Java 21 virtual threads for request + async work
@@ -59,8 +62,6 @@ spring:
 
 server:
   shutdown: graceful
-  error:
-    include-stacktrace: never
 
 management:
   endpoints:
