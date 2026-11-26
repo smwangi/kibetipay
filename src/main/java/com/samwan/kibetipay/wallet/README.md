@@ -11,7 +11,8 @@ The application currently operates a single currency per deployment; it does not
 | `POST /api/wallets` | Open the caller's wallet. |
 | `GET /api/wallets/me` | Get the caller's balance. |
 | `POST /api/wallets/me/deposits` | Credit a wallet using a required `Idempotency-Key`. |
-| `GET /api/wallets/me/statement` | List the caller's ledger entries. |
+| `GET /api/wallets/me/statement` | Page through the caller's ledger entries, newest first (`limit`, `cursor`, inclusive `from`/`to`). Transfer and reversal lines name the counterparty; system accounts are never named. |
+| `GET /api/wallets/me/summary` | Money in and out by journal kind and an end-of-day balance series for the last `days` (7–366) days, from the ledger. |
 
 The deposit endpoint directly posts a journal; it is a development/simulation flow, not evidence that M-Pesa collected funds. `WalletApi.post` handles two-account transfers; `postJournal` accepts balanced multi-leg postings. System account identifiers are defined in `WalletApi.SystemAccounts`: float, lending pool, interest/fee/penalty income, commission expense and suspense. `system:suspense` holds received money that is not yet attributed to a customer; the [mobile money module](../mobilemoney/README.md#suspense) posts to it.
 

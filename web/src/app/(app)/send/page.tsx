@@ -98,7 +98,8 @@ function TransferProgress({ accepted, onAnother }: { accepted: TransferAccepted;
   useEffect(() => {
     if (done) {
       // Balance and lists changed: refresh everything that shows them.
-      void mutate((k) => typeof k === "string" && (k.startsWith("/wallets") || k.startsWith("/transfers")));
+      // `includes`, not `startsWith`: paged lists use SWR infinite keys ("$inf$/transfers?...").
+      void mutate((k) => typeof k === "string" && (k.includes("/wallets") || k.includes("/transfers")));
     }
   }, [done, mutate]);
 
@@ -106,8 +107,8 @@ function TransferProgress({ accepted, onAnother }: { accepted: TransferAccepted;
     PENDING_RISK: { tone: "info", text: "Checking your transfer…" },
     IN_REVIEW: { tone: "warning", text: "Your transfer is being reviewed by our team. The money stays in your wallet until it is approved." },
     COMPLETED: { tone: "success", text: "Money sent." },
-    REJECTED: { tone: "danger", text: "This transfer was declined by our security checks. No money left your wallet." },
-    FAILED: { tone: "danger", text: transfer?.failureReason ?? "The transfer failed. No money left your wallet." },
+    REJECTED: { tone: "danger", text: transfer?.statusMessage ?? "This transfer was declined by our security checks. No money left your wallet." },
+    FAILED: { tone: "danger", text: transfer?.statusMessage ?? "The transfer failed. No money left your wallet." },
   }[status] as { tone: "info" | "warning" | "success" | "danger"; text: string };
 
   return (

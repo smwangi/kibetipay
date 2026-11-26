@@ -5,7 +5,9 @@ import com.samwan.kibetipay.shared.error.DomainException;
 import com.samwan.kibetipay.shared.id.Ids;
 import com.samwan.kibetipay.shared.money.Money;
 import com.samwan.kibetipay.transfer.TransferQueries;
-import com.samwan.kibetipay.transfer.TransferQueries.TransferView;
+import com.samwan.kibetipay.shared.paging.Page;
+import com.samwan.kibetipay.shared.time.TimeConfig;
+import com.samwan.kibetipay.transfer.TransferQueries.CustomerTransferView;
 import com.samwan.kibetipay.transfer.internal.command.TransferCommandHandler;
 import com.samwan.kibetipay.transfer.internal.command.TransferCommandHandler.InitiateTransfer;
 import com.samwan.kibetipay.wallet.WalletApi;
@@ -18,11 +20,12 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.net.URI;
-import java.util.List;
+import java.time.LocalDate;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -64,24 +67,37 @@ class TransferController {
                         "replayed", accepted.replayed()));
     }
 
+    // Customer endpoints return CustomerTransferView: no risk score, no raw failure reason.
+
     @GetMapping("/{id}")
-    TransferView get(@PathVariable UUID id) {
+    CustomerTransferView get(@PathVariable UUID id) {
         return queries.byId(id, CurrentUser.id())
+                .map(CustomerTransferView::of)
                 .orElseThrow(() -> new DomainException.NotFound("transfer_not_found", "No transfer " + id));
     }
 
     /** Support/receipt lookup, e.g. GET /api/transfers/ref/KP7H3QX9M2AB (case-insensitive). */
     @GetMapping("/ref/{txnRef}")
-    TransferView getByRef(@PathVariable String txnRef) {
+    CustomerTransferView getByRef(@PathVariable String txnRef) {
         var ref = txnRef.trim().toUpperCase(Locale.ROOT);
         return Optional.of(ref).filter(Ids::isTxnRef)
                 .flatMap(r -> queries.byTxnRef(r, CurrentUser.id()))
+                .map(CustomerTransferView::of)
                 .orElseThrow(() -> new DomainException.NotFound("transfer_not_found", "No transfer " + txnRef));
     }
 
+    /**
+     * The caller's transfers, newest first. Pass the previous page's {@code nextCursor} as
+     * {@code cursor} for the next page; {@code from}/{@code to} are inclusive dates (Nairobi time).
+     */
     @GetMapping
-    List<TransferView> recent(@RequestParam(defaultValue = "20") int limit) {
-        return queries.recentFor(CurrentUser.id(), limit);
+    Page<CustomerTransferView> history(
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        var query = Page.Query.of(from, to, cursor, limit, TimeConfig.BUSINESS_ZONE);
+        return queries.historyFor(CurrentUser.id(), query).map(CustomerTransferView::of);
     }
 
     record TransferRequest(

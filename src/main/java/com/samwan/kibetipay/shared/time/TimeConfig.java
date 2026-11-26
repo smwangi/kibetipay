@@ -10,9 +10,10 @@ import org.springframework.context.annotation.Configuration;
  * overdue checks, daily jobs) uses this, so tests can pin time with Clock.fixed(...).
  */
 @Configuration(proxyBeanMethods = false)
-class TimeConfig {
+public class TimeConfig {
 
-    static final ZoneId BUSINESS_ZONE = ZoneId.of("Africa/Nairobi");
+    /** Calendar days (statements, "this month", due dates) are counted in this zone. */
+    public static final ZoneId BUSINESS_ZONE = ZoneId.of("Africa/Nairobi");
 
     @Bean
     Clock clock() {

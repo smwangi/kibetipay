@@ -2,9 +2,12 @@ package com.samwan.kibetipay.wallet.internal;
 
 import com.samwan.kibetipay.shared.security.CurrentUser;
 import com.samwan.kibetipay.shared.money.Money;
+import com.samwan.kibetipay.shared.paging.Page;
+import com.samwan.kibetipay.shared.time.TimeConfig;
 import com.samwan.kibetipay.wallet.WalletApi;
 import com.samwan.kibetipay.wallet.WalletApi.PostingReceipt;
 import com.samwan.kibetipay.wallet.WalletApi.StatementLine;
+import com.samwan.kibetipay.wallet.WalletApi.WalletSummary;
 import com.samwan.kibetipay.wallet.WalletApi.WalletView;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
@@ -13,7 +16,8 @@ import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.net.URI;
-import java.util.List;
+import java.time.LocalDate;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -60,9 +64,24 @@ class WalletController {
         return wallets.deposit(CurrentUser.id(), amount, "deposit:" + CurrentUser.id() + ":" + idempotencyKey);
     }
 
+    /**
+     * Every ledger movement on the caller's wallet, newest first. Pass the previous page's
+     * {@code nextCursor} as {@code cursor}; {@code from}/{@code to} are inclusive dates (Nairobi time).
+     */
     @GetMapping("/me/statement")
-    List<StatementLine> statement(@RequestParam(defaultValue = "50") int limit) {
-        return wallets.statement(CurrentUser.id(), props.defaultCurrency(), limit);
+    Page<StatementLine> statement(
+            @RequestParam(defaultValue = "50") int limit,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        var query = Page.Query.of(from, to, cursor, limit, TimeConfig.BUSINESS_ZONE);
+        return wallets.statement(CurrentUser.id(), props.defaultCurrency(), query);
+    }
+
+    /** Dashboard figures: money in/out by kind and a daily balance series for the last {@code days} days. */
+    @GetMapping("/me/summary")
+    WalletSummary summary(@RequestParam(defaultValue = "30") int days) {
+        return wallets.summary(CurrentUser.id(), props.defaultCurrency(), days, TimeConfig.BUSINESS_ZONE);
     }
 
     record DepositRequest(

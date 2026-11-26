@@ -5,7 +5,14 @@ import com.samwan.kibetipay.shared.money.Money;
 import com.samwan.kibetipay.wallet.WalletApi;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.annotation.Observed;
+import com.samwan.kibetipay.shared.paging.Cursor;
+import com.samwan.kibetipay.shared.paging.Page;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -218,27 +225,132 @@ class LedgerService implements WalletApi {
 
     @Override
     @Transactional(readOnly = true)
-    public List<StatementLine> statement(String ownerId, String currency, int limit) {
+    public Page<StatementLine> statement(String ownerId, String currency, Page.Query q) {
         var wallet = get(ownerId, currency);
-        return jdbc.sql("""
-                        SELECT j.id AS journal_id, j.reference, e.direction, e.amount_minor,
-                               e.balance_after, e.currency, e.created_at
-                        FROM wallet_ledger_entry e
-                        JOIN wallet_journal j ON j.id = e.journal_id
-                        WHERE e.wallet_id = :walletId
-                        ORDER BY e.created_at DESC
-                        LIMIT :limit
-                        """)
-                .param("walletId", wallet.id())
-                .param("limit", Math.min(Math.max(limit, 1), 200))
-                .query((rs, i) -> new StatementLine(
-                        rs.getObject("journal_id", java.util.UUID.class),
+        // Counterparty: the other wallet in a person-to-person journal. Loan, deposit and fee
+        // journals touch system accounts, which are not shown to customers.
+        var sql = new StringBuilder("""
+                SELECT e.id AS entry_id, j.id AS journal_id, j.reference, j.kind, e.direction, e.amount_minor,
+                       e.balance_after, e.currency, e.created_at,
+                       CASE WHEN j.kind IN ('TRANSFER', 'REVERSAL') THEN (
+                           SELECT a.owner_id FROM wallet_ledger_entry o
+                           JOIN wallet_account a ON a.id = o.wallet_id
+                           WHERE o.journal_id = j.id AND o.wallet_id <> e.wallet_id
+                           LIMIT 1) END AS counterparty
+                FROM wallet_ledger_entry e
+                JOIN wallet_journal j ON j.id = e.journal_id
+                WHERE e.wallet_id = :walletId
+                """);
+        if (q.from() != null) {
+            sql.append(" AND e.created_at >= :from");
+        }
+        if (q.toExclusive() != null) {
+            sql.append(" AND e.created_at < :to");
+        }
+        if (q.before() != null) {
+            sql.append(" AND (e.created_at, e.id) < (:beforeAt, :beforeId)");
+        }
+        sql.append(" ORDER BY e.created_at DESC, e.id DESC LIMIT :limit");
+
+        var spec = jdbc.sql(sql.toString()).param("walletId", wallet.id()).param("limit", q.limit() + 1);
+        if (q.from() != null) {
+            spec = spec.param("from", Timestamp.from(q.from()));
+        }
+        if (q.toExclusive() != null) {
+            spec = spec.param("to", Timestamp.from(q.toExclusive()));
+        }
+        if (q.before() != null) {
+            spec = spec.param("beforeAt", Timestamp.from(q.before().at())).param("beforeId", q.before().id());
+        }
+        var rows = spec.query((rs, i) -> new StatementLine(
+                        rs.getObject("entry_id", UUID.class),
+                        rs.getObject("journal_id", UUID.class),
                         rs.getString("reference"),
+                        rs.getString("kind"),
                         Leg.Side.valueOf(rs.getString("direction")),
                         Money.of(rs.getLong("amount_minor"), rs.getString("currency")),
                         Money.of(rs.getLong("balance_after"), rs.getString("currency")),
+                        rs.getString("counterparty"),
                         rs.getTimestamp("created_at").toInstant()))
                 .list();
+        return Page.fromOverfetch(rows, q.limit(), line -> new Cursor(line.at(), line.entryId()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public WalletSummary summary(String ownerId, String currency, int days, ZoneId zone) {
+        var wallet = get(ownerId, currency);
+        int span = Math.min(Math.max(days, 7), 366);
+        LocalDate to = LocalDate.now(zone);
+        LocalDate from = to.minusDays(span - 1L);
+        var fromTs = Timestamp.from(from.atStartOfDay(zone).toInstant());
+        var toTs = Timestamp.from(to.plusDays(1).atStartOfDay(zone).toInstant());
+
+        long opening = jdbc.sql("""
+                        SELECT balance_after FROM wallet_ledger_entry
+                        WHERE wallet_id = :walletId AND created_at < :from
+                        ORDER BY created_at DESC, id DESC LIMIT 1
+                        """)
+                .param("walletId", wallet.id()).param("from", fromTs)
+                .query(Long.class).optional().orElse(0L);
+
+        List<KindTotal> byKind = jdbc.sql("""
+                        SELECT j.kind,
+                               COALESCE(SUM(e.amount_minor) FILTER (WHERE e.direction = 'CREDIT'), 0) AS in_minor,
+                               COALESCE(SUM(e.amount_minor) FILTER (WHERE e.direction = 'DEBIT'), 0) AS out_minor,
+                               COUNT(*) AS n
+                        FROM wallet_ledger_entry e
+                        JOIN wallet_journal j ON j.id = e.journal_id
+                        WHERE e.wallet_id = :walletId AND e.created_at >= :from AND e.created_at < :to
+                        GROUP BY j.kind
+                        ORDER BY j.kind
+                        """)
+                .param("walletId", wallet.id()).param("from", fromTs).param("to", toTs)
+                .query((rs, i) -> new KindTotal(rs.getString("kind"), Money.of(rs.getLong("in_minor"), currency),
+                        Money.of(rs.getLong("out_minor"), currency), rs.getLong("n")))
+                .list();
+
+        record Day(LocalDate date, long in, long out, long closing) {}
+        Map<LocalDate, Day> activeDays = jdbc.sql("""
+                        WITH entries AS (
+                            SELECT (created_at AT TIME ZONE :zone)::date AS d, direction, amount_minor,
+                                   balance_after, created_at, id
+                            FROM wallet_ledger_entry
+                            WHERE wallet_id = :walletId AND created_at >= :from AND created_at < :to),
+                        sums AS (
+                            SELECT d,
+                                   COALESCE(SUM(amount_minor) FILTER (WHERE direction = 'CREDIT'), 0) AS in_minor,
+                                   COALESCE(SUM(amount_minor) FILTER (WHERE direction = 'DEBIT'), 0) AS out_minor
+                            FROM entries GROUP BY d),
+                        closing AS (
+                            SELECT DISTINCT ON (d) d, balance_after FROM entries ORDER BY d, created_at DESC, id DESC)
+                        SELECT s.d, s.in_minor, s.out_minor, c.balance_after
+                        FROM sums s JOIN closing c USING (d)
+                        """)
+                .param("zone", zone.getId()).param("walletId", wallet.id()).param("from", fromTs).param("to", toTs)
+                .query((rs, i) -> new Day(rs.getObject("d", LocalDate.class), rs.getLong("in_minor"),
+                        rs.getLong("out_minor"), rs.getLong("balance_after")))
+                .list().stream()
+                .collect(Collectors.toMap(Day::date, Function.identity()));
+
+        // One point per calendar day; quiet days carry the previous closing balance forward.
+        List<DailyBalance> daily = new ArrayList<>(span);
+        long balance = opening;
+        long totalIn = 0;
+        long totalOut = 0;
+        for (LocalDate d = from; !d.isAfter(to); d = d.plusDays(1)) {
+            Day day = activeDays.get(d);
+            long in = day == null ? 0 : day.in();
+            long out = day == null ? 0 : day.out();
+            if (day != null) {
+                balance = day.closing();
+            }
+            totalIn += in;
+            totalOut += out;
+            daily.add(new DailyBalance(d, Money.of(in, currency), Money.of(out, currency), Money.of(balance, currency)));
+        }
+        return new WalletSummary(from, to, Money.of(opening, currency), wallet.balance(),
+                Money.of(totalIn, currency), Money.of(totalOut, currency), byKind, daily);
     }
 
     private static WalletView toView(WalletAccount w) {

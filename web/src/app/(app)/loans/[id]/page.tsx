@@ -161,7 +161,7 @@ function Repay({ loan, currency }: { loan: LoanDetail; currency: string | undefi
     try {
       setReceipt(await api<RepaymentReceipt>(`/loans/${loan.summary.id}/repayments`, { method: "POST", idempotencyKey: key, body: { amount: Number(amount) } }));
       setKey(newIdempotencyKey());
-      await mutate((k) => typeof k === "string" && (k.startsWith("/loans") || k.startsWith("/wallets")));
+      await mutate((k) => typeof k === "string" && (k.startsWith("/loans") || k.includes("/wallets")));
     } catch (e) {
       setError(e);
     } finally {
