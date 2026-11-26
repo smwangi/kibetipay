@@ -1,9 +1,12 @@
 package com.samwan.kibetipay.transfer.internal.query;
 
 import com.samwan.kibetipay.shared.money.Money;
+import com.samwan.kibetipay.shared.paging.Cursor;
+import com.samwan.kibetipay.shared.paging.Page;
 import com.samwan.kibetipay.transfer.TransferQueries;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -57,6 +60,34 @@ class TransferQueryService implements TransferQueries {
                 .param("limit", clamp(limit))
                 .query(TransferQueryService::map)
                 .list();
+    }
+
+    @Override
+    public Page<TransferView> historyFor(String ownerId, Page.Query q) {
+        var sql = new StringBuilder(SELECT).append(" WHERE (initiator_id = :owner OR recipient_id = :owner)");
+        if (q.from() != null) {
+            sql.append(" AND created_at >= :from");
+        }
+        if (q.toExclusive() != null) {
+            sql.append(" AND created_at < :to");
+        }
+        if (q.before() != null) {
+            sql.append(" AND (created_at, id) < (:beforeAt, :beforeId)");
+        }
+        sql.append(" ORDER BY created_at DESC, id DESC LIMIT :limit");
+
+        var spec = jdbc.sql(sql.toString()).param("owner", ownerId).param("limit", q.limit() + 1);
+        if (q.from() != null) {
+            spec = spec.param("from", Timestamp.from(q.from()));
+        }
+        if (q.toExclusive() != null) {
+            spec = spec.param("to", Timestamp.from(q.toExclusive()));
+        }
+        if (q.before() != null) {
+            spec = spec.param("beforeAt", Timestamp.from(q.before().at())).param("beforeId", q.before().id());
+        }
+        return Page.fromOverfetch(spec.query(TransferQueryService::map).list(), q.limit(),
+                t -> new Cursor(t.createdAt(), t.id()));
     }
 
     @Override

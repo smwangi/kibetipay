@@ -33,12 +33,24 @@ Content-Type: application/json
 
 { "recipient": "bob", "amount": 21000.00, "note": "rent" }
 
-### My transfers
-GET {{base}}/api/transfers
+### My transfers (newest first; pass the response's nextCursor as ?cursor= for the next page)
+GET {{base}}/api/transfers?limit=20
 Authorization: Basic alice alice-dev
 
-### Statement
-GET {{base}}/api/wallets/me/statement
+### My transfers in a date range (inclusive, Nairobi time)
+GET {{base}}/api/transfers?from=2026-11-01&to=2026-11-30
+Authorization: Basic alice alice-dev
+
+### Statement (paged the same way; transfer lines carry the counterparty)
+GET {{base}}/api/wallets/me/statement?limit=50
+Authorization: Basic alice alice-dev
+
+### Dashboard summary: money in/out by kind and daily balances for the last 30 days
+GET {{base}}/api/wallets/me/summary?days=30
+Authorization: Basic alice alice-dev
+
+### My M-Pesa top-ups, including failed and pending ones
+GET {{base}}/api/mobile-money/collections?limit=20
 Authorization: Basic alice alice-dev
 
 ### Analyst review queue

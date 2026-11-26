@@ -45,10 +45,16 @@ public class AccountTools {
         return wallets.get(ownerId, wallets.defaultCurrency()).balance().toString();
     }
 
-    @Tool(description = "List the current user's most recent transfers (sent and received) with status and risk score")
-    public List<TransferQueries.TransferView> myRecentTransfers(
+    /**
+     * Customer-safe view only: anything the model sees can end up in its answer, so risk scores
+     * and risk-rule reasons must never reach it.
+     */
+    @Tool(description = "List the current user's most recent transfers (sent and received) with status and a plain-language status message")
+    public List<TransferQueries.CustomerTransferView> myRecentTransfers(
             @ToolParam(description = "How many transfers to return, 1-20") int limit) {
-        return transfers.recentFor(ownerId, Math.min(Math.max(limit, 1), 20));
+        return transfers.recentFor(ownerId, Math.min(Math.max(limit, 1), 20)).stream()
+                .map(TransferQueries.CustomerTransferView::of)
+                .toList();
     }
 
     @Tool(description = "Get the current user's spending by category for a month. Month format yyyy-MM; omit for current month")

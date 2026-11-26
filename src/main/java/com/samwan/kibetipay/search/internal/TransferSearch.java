@@ -5,6 +5,7 @@ import com.samwan.kibetipay.search.internal.SearchIndices.Kind;
 import com.samwan.kibetipay.search.internal.SearchPage.Hit;
 import com.samwan.kibetipay.search.internal.SearchPage.Paging;
 import com.samwan.kibetipay.shared.money.Money;
+import com.samwan.kibetipay.transfer.TransferQueries;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
@@ -76,7 +77,7 @@ class TransferSearch {
     /** @param viewer null = admin (everything); otherwise only transfers the viewer sent or received */
     SearchPage<TransferView, Facets> search(Criteria c, String viewer) {
         boolean hasText = StringUtils.hasText(c.text());
-        Query text = hasText ? textQuery(c.text().trim()) : Query.of(q -> q.matchAll(m -> m));
+        Query text = hasText ? textQuery(c.text().trim(), viewer == null) : Query.of(q -> q.matchAll(m -> m));
         List<Query> filters = filters(c, viewer);
 
         try {
@@ -101,7 +102,7 @@ class TransferSearch {
                                     .format("yyyy-MM-dd")))
                             .aggregations("amount", a -> a.stats(st -> st.field("amountMinor"))),
                     TransferDoc.class);
-            return toPage(response, c.paging());
+            return toPage(response, c.paging(), viewer != null);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -111,15 +112,22 @@ class TransferSearch {
      * {@code should} clauses with minimum_should_match=1: any one may match, and each match adds to the score.
      * The stemmed {@code note} field is boosted so whole-word hits outrank prefix-only hits.
      */
-    private static Query textQuery(String text) {
-        return Query.of(q -> q.bool(b -> b
-                .should(s -> s.match(m -> m.field("note").query(FieldValue.of(text)).fuzziness("AUTO").boost(3f)))
-                .should(s -> s.match(m -> m.field("note.prefix").query(FieldValue.of(text))))
-                .should(s -> s.term(t -> t.field("initiatorId").value(FieldValue.of(text))))
-                .should(s -> s.term(t -> t.field("recipientId").value(FieldValue.of(text))))
-                .should(s -> s.term(t -> t.field("transferId").value(FieldValue.of(text))))
-                .should(s -> s.match(m -> m.field("reason").query(FieldValue.of(text))))
-                .minimumShouldMatch("1")));
+    /**
+     * @param internal staff search may match on {@code reason} (risk rules, analyst notes); a
+     *                 customer must not, or matching "velocity" would reveal which rule fired
+     */
+    private static Query textQuery(String text, boolean internal) {
+        return Query.of(q -> q.bool(b -> {
+            b.should(s -> s.match(m -> m.field("note").query(FieldValue.of(text)).fuzziness("AUTO").boost(3f)))
+                    .should(s -> s.match(m -> m.field("note.prefix").query(FieldValue.of(text))))
+                    .should(s -> s.term(t -> t.field("initiatorId").value(FieldValue.of(text))))
+                    .should(s -> s.term(t -> t.field("recipientId").value(FieldValue.of(text))))
+                    .should(s -> s.term(t -> t.field("transferId").value(FieldValue.of(text))));
+            if (internal) {
+                b.should(s -> s.match(m -> m.field("reason").query(FieldValue.of(text))));
+            }
+            return b.minimumShouldMatch("1");
+        }));
     }
 
     private List<Query> filters(Criteria c, String viewer) {
@@ -167,9 +175,10 @@ class TransferSearch {
                 .minimumShouldMatch("1")));
     }
 
-    private SearchPage<TransferView, Facets> toPage(SearchResponse<TransferDoc> response, Paging paging) {
+    private SearchPage<TransferView, Facets> toPage(SearchResponse<TransferDoc> response, Paging paging,
+                                                    boolean customer) {
         List<Hit<TransferView>> hits = response.hits().hits().stream()
-                .map(h -> new Hit<>(view(h.source()), h.score(), h.highlight()))
+                .map(h -> new Hit<>(customer ? customerView(h.source()) : view(h.source()), h.score(), h.highlight()))
                 .toList();
 
         var aggs = response.aggregations();
@@ -193,6 +202,14 @@ class TransferSearch {
 
     private String money(Double minor) {
         return minor == null ? null : Money.of(Math.round(minor), currency).toString();
+    }
+
+    /** No risk score, and the reason replaced by the same plain-language message the transfer API gives. */
+    private TransferView customerView(TransferDoc d) {
+        var full = view(d);
+        String status = "HELD_FOR_REVIEW".equals(d.status()) ? "IN_REVIEW" : d.status();
+        return new TransferView(full.transferId(), full.initiatorId(), full.recipientId(), full.amount(), full.note(),
+                null, full.status(), TransferQueries.customerMessage(status, d.reason()), full.updatedAt());
     }
 
     private TransferView view(TransferDoc d) {

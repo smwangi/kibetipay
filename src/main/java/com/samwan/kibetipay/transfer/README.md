@@ -12,6 +12,8 @@ Retries with the same key and request return the same transfer; changing request
 
 ## HTTP and operations
 
-`GET /api/transfers` lists the caller's transfers; `GET /api/transfers/{id}` returns a transfer visible to that caller. Administrators use `GET /api/admin/transfers/review-queue` and `POST /api/admin/transfers/{id}/approve` or `/decline` for held transfers. All `/api/admin/**` routes require the ADMIN role; other `/api/**` routes require authentication.
+`GET /api/transfers` pages through the caller's transfers, sent and received, newest first: `limit` (max 100), optional inclusive `from`/`to` dates (Nairobi time) and `cursor` (the previous page's `nextCursor`, a keyset position). `GET /api/transfers/{id}` and `/ref/{txnRef}` return a transfer visible to that caller.
+
+Customer responses use `CustomerTransferView`: no risk score and no raw failure reason, only a fixed plain-language `statusMessage`. Risk rule names and analyst notes would show a fraudster which thresholds to stay under, so they stay on the admin endpoints (and out of the assistant's tools, whose output the model may repeat). Administrators use `GET /api/admin/transfers/review-queue` and `POST /api/admin/transfers/{id}/approve` or `/decline` for held transfers. All `/api/admin/**` routes require the ADMIN role; other `/api/**` routes require authentication.
 
 The `transfer` table stores lifecycle and idempotency information. Search is an eventually consistent projection, not the source of truth. Test state transitions with `TransferStateMachineTest`; `TransferFlowIntegrationTest` requires Docker for PostgreSQL.

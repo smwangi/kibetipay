@@ -2,7 +2,10 @@ package com.samwan.kibetipay.wallet;
 
 import com.samwan.kibetipay.shared.money.Money;
 import com.samwan.kibetipay.shared.error.DomainException;
+import com.samwan.kibetipay.shared.paging.Page;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -79,7 +82,14 @@ public interface WalletApi {
         }
     }
 
-    List<StatementLine> statement(String ownerId, String currency, int limit);
+    /** The wallet's ledger entries, newest first, one keyset page at a time. */
+    Page<StatementLine> statement(String ownerId, String currency, Page.Query query);
+
+    /**
+     * Totals and a daily balance series for {@code days} calendar days ending today (in
+     * {@code zone}), computed from the ledger, so every kind of movement is included.
+     */
+    WalletSummary summary(String ownerId, String currency, int days, ZoneId zone);
 
     enum WalletStatus {
         ACTIVE,
@@ -98,8 +108,22 @@ public interface WalletApi {
     /** The balance is for the first debit owner after the entire journal, including on replay. */
     record PostingReceipt(UUID journalId, String reference, Money fromBalanceAfter, boolean replayed) {}
 
-    record StatementLine(UUID journalId, String reference, Leg.Side direction, Money amount,
-                         Money balanceAfter, Instant at) {}
+    /**
+     * One ledger entry on the wallet. {@code kind} is the journal kind (DEPOSIT, TRANSFER,
+     * LOAN_DISBURSEMENT, ...). {@code counterparty} is the other wallet's owner for person-to-person
+     * movements (TRANSFER, REVERSAL), otherwise {@code null}: system accounts are not named.
+     */
+    record StatementLine(UUID entryId, UUID journalId, String reference, String kind, Leg.Side direction,
+                         Money amount, Money balanceAfter, String counterparty, Instant at) {}
+
+    record WalletSummary(LocalDate from, LocalDate to, Money openingBalance, Money closingBalance,
+                         Money totalIn, Money totalOut, List<KindTotal> byKind, List<DailyBalance> daily) {}
+
+    /** Money in and out of the wallet for one journal kind over the summary period. */
+    record KindTotal(String kind, Money in, Money out, long count) {}
+
+    /** {@code closingBalance} is carried forward over days without movements. */
+    record DailyBalance(LocalDate date, Money in, Money out, Money closingBalance) {}
 
     /** 422: debit would take a user wallet below zero. */
     final class InsufficientFundsException extends DomainException.RuleViolation {
