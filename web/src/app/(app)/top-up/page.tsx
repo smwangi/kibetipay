@@ -122,10 +122,11 @@ function CollectionProgress({ initial, onAnother }: { initial: Collection; onAno
   const collection = data ?? initial;
   const done = COLLECTION_DONE.has(collection.status);
   useEffect(() => {
-    if (collection.status === "COMPLETED") {
-      void mutate((k) => typeof k === "string" && k.startsWith("/wallets"));
+    // Any final outcome changes the top-up history; only success changes the balance.
+    if (done) {
+      void mutate((k) => typeof k === "string" && (k.includes("/wallets") || k.includes("/mobile-money/collections")));
     }
-  }, [collection.status, mutate]);
+  }, [done, mutate]);
 
   const messages: Record<string, [tone: "info" | "success" | "warning" | "danger", text: string]> = {
     SUBMITTING: ["info", "Sending the payment prompt to your phone…"],

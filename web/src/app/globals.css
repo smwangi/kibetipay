@@ -23,6 +23,9 @@
   --danger-soft: #fbe3e3;
   --info: #2457a6;
   --info-soft: #e1eafa;
+  /* Chart ink: the brand hue, re-stepped to pass the dataviz validator (chroma + lightness band). */
+  --chart-1: #0a8a64;
+  --chart-grid: #e6ebe5;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -48,6 +51,8 @@
     --danger-soft: #3d1c1e;
     --info: #85aef0;
     --info-soft: #1b2a45;
+    --chart-1: #2ea67f;
+    --chart-grid: #232e2a;
   }
 }
 
@@ -73,6 +78,8 @@
   --color-danger-soft: var(--danger-soft);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
+  --color-chart-1: var(--chart-1);
+  --color-chart-grid: var(--chart-grid);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

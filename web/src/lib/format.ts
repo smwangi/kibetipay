@@ -56,3 +56,71 @@ export function describeReference(reference: string): string {
   if (reference.startsWith("loan:commission:")) return "Agent commission";
   return humanize(reference.split(":")[0] ?? reference);
 }
+
+/** "Transfer to bob" / "Transfer from bob" when the statement names the other person. */
+export function describeStatementLine(line: {
+  reference: string;
+  kind: string;
+  direction: "DEBIT" | "CREDIT";
+  counterparty: string | null;
+}): string {
+  if (line.counterparty && line.kind === "TRANSFER") {
+    return `${line.direction === "DEBIT" ? "Transfer to" : "Transfer from"} ${line.counterparty}`;
+  }
+  if (line.counterparty && line.kind === "REVERSAL") {
+    return `Reversal ${line.direction === "DEBIT" ? "to" : "from"} ${line.counterparty}`;
+  }
+  return describeReference(line.reference);
+}
+
+const KIND_LABELS: Record<string, string> = {
+  DEPOSIT: "Top-ups & deposits",
+  TRANSFER: "Transfers",
+  REVERSAL: "Reversals",
+  LOAN_DISBURSEMENT: "Loans received",
+  LOAN_REPAYMENT: "Loan repayments",
+  COMMISSION: "Agent commission",
+  SUSPENSE_ALLOCATION: "Payments matched by support",
+};
+
+/** Ledger journal kinds ("LOAN_REPAYMENT") -> customer wording ("Loan repayments"). */
+export function describeKind(kind: string): string {
+  return KIND_LABELS[kind] ?? humanize(kind);
+}
+
+/** Minor units -> compact axis label without currency: 0, 950, 12K, 1.2M. */
+export function formatCompact(minor: number, currency: string): string {
+  const digits = currencyFormatter(currency).resolvedOptions().maximumFractionDigits ?? 2;
+  return new Intl.NumberFormat(LOCALE, { notation: "compact", maximumFractionDigits: 1 }).format(minor / 10 ** digits);
+}
+
+/** A yyyy-MM-dd date (no time zone shift) -> "26 Nov". */
+export function formatDay(isoDate: string): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "short", timeZone: "UTC" }).format(Date.UTC(y, m - 1, d));
+}
+
+/** Today's date in Nairobi as yyyy-MM-dd, optionally shifted by whole days. */
+export function nairobiDate(offsetDays = 0): string {
+  const now = new Date(Date.now() + offsetDays * 86_400_000);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Nairobi" }).format(now);
+}
+
+/** Top-up statuses in the words a customer would use. */
+export function describeTopUpStatus(status: string): string {
+  switch (status) {
+    case "SUBMITTING":
+    case "PENDING":
+      return "Waiting for approval";
+    case "UNKNOWN":
+      return "Being checked";
+    case "COMPLETED":
+      return "Added to wallet";
+    case "REJECTED":
+      return "Declined by provider";
+    case "FAILED":
+      return "Not completed";
+    default:
+      return humanize(status);
+  }
+}

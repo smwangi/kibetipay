@@ -10,13 +10,32 @@ export type Wallet = {
   createdAt: string;
 };
 
+/** A newest-first page; pass `nextCursor` back as `cursor` for the next page (null on the last). */
+export type Page<T> = { items: T[]; nextCursor: string | null };
+
 export type StatementLine = {
+  entryId: string;
   journalId: string;
   reference: string;
+  /** Journal kind: DEPOSIT, TRANSFER, LOAN_DISBURSEMENT, LOAN_REPAYMENT, COMMISSION, ... */
+  kind: string;
   direction: "DEBIT" | "CREDIT";
   amount: Money;
   balanceAfter: Money;
+  /** The other person in a transfer; null for deposits, loans and fees. */
+  counterparty: string | null;
   at: string;
+};
+
+export type WalletSummary = {
+  from: string;
+  to: string;
+  openingBalance: Money;
+  closingBalance: Money;
+  totalIn: Money;
+  totalOut: Money;
+  byKind: { kind: string; in: Money; out: Money; count: number }[];
+  daily: { date: string; in: Money; out: Money; closingBalance: Money }[];
 };
 
 export type PostingReceipt = { journalId: string; reference: string; fromBalanceAfter: Money; replayed: boolean };
@@ -33,8 +52,8 @@ export type Transfer = {
   currency: string;
   note: string | null;
   status: TransferStatus;
-  riskScore: number | null;
-  failureReason: string | null;
+  /** Plain-language explanation of the status; null once completed. */
+  statusMessage: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -51,6 +70,18 @@ export type Collection = {
   receipt: string | null;
   journalId: string | null;
   replayed: boolean;
+};
+
+/** A top-up in the customer's history. `msisdn` is masked, e.g. 2547••••5678. */
+export type CollectionView = {
+  id: string;
+  status: CollectionStatus;
+  amount: Money;
+  msisdn: string;
+  provider: string;
+  receipt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type LoanStatus =
